@@ -45,10 +45,12 @@
                       default-directory))
   "File name of the startup script.")
 
-(cl-defstruct (drepl-lua (:include drepl)))
+(defclass drepl-lua (drepl-base) nil)
 
-(cl-defmethod drepl--restart :after ((_repl drepl-lua))
-  (drepl-lua))
+;;;###autoload
+(defun drepl-run-lua ()
+  (interactive)
+  (drepl--run 'drepl-lua t))
 
 (define-derived-mode drepl-lua-mode drepl-mode "Lua"
   "Major mode for the Lua shell.
@@ -58,30 +60,16 @@
   :interactive nil
   (setq-local comint-indirect-setup-function #'lua-mode))
 
-;;; User commands
+(cl-defmethod drepl--command ((_ drepl-lua))
+  '("lua" "-v" "-e" "loadfile()():main()"))
 
-;;;###autoload
-(defun drepl-lua ()
-  "Run the Lua interpreter in an inferior process."
-  (interactive)
-  (cl-letf* ((buffer (get-buffer-create drepl-lua-buffer-name))
-             ((default-value 'process-environment) process-environment)
-             ((default-value 'exec-path) exec-path))
-    (unless (comint-check-proc buffer)
-      (make-comint-in-buffer
-       (buffer-name buffer)
-       buffer
-       "lua" nil "-v" "-e" "loadfile()():main()")
-      (with-current-buffer buffer
-        (drepl-lua-mode)
-        (setq-local process-environment process-environment) ;FIXME
-        (setq-local exec-path exec-path)
-        (setq-local drepl--current (make-drepl-lua :buffer buffer))
-        (with-temp-buffer
-          (insert-file-contents drepl-lua--start-file)
-          (process-send-string buffer (buffer-string))
-          (process-send-eof buffer))))
-    (pop-to-buffer buffer display-comint-buffer-action)))
+(cl-defmethod drepl--init ((_ drepl-lua))
+  (drepl-lua-mode)
+  (let ((buffer (current-buffer)))
+    (with-temp-buffer
+      (insert-file-contents drepl-lua--start-file)
+      (process-send-string buffer (buffer-string))
+      (process-send-eof buffer))))
 
 (provide 'drepl-lua)
 

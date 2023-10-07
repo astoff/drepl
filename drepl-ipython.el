@@ -24,10 +24,11 @@
 
 ;;; Code:
 
-;;; Customization options
 (require 'comint-mime)
 (require 'drepl)
 (require 'python)
+
+;;; Customization options
 
 (defgroup drepl-ipython nil
   "IPython shell implemented via dREPL"
@@ -46,18 +47,6 @@
                       default-directory))
   "File name of the startup script.")
 
-(cl-defstruct (drepl-ipython (:include drepl)))
-
-(cl-defmethod drepl--restart :around ((repl drepl-ipython))
-  (if (eq (drepl-status repl) 'ready)
-      (with-current-buffer (drepl-buffer repl)
-        (save-excursion)
-        (goto-char (process-mark (drepl-process repl)))
-        (insert-before-markers "%reset -f")
-        (drepl--eval repl "%reset -f"))
-    (cl-call-next-method)
-    (drepl-ipython)))
-
 (define-derived-mode drepl-ipython-mode drepl-mode "IPython"
   "Major mode for the IPython shell.
 
@@ -67,26 +56,33 @@
   (setq-local comint-indirect-setup-function #'python-mode)
   (push '("5151" . comint-mime-osc-handler) ansi-osc-handlers))
 
+(defclass drepl-ipython (drepl-base) nil)
+
 ;;;###autoload
-(defun drepl-ipython ()
-  "Run the IPython interpreter in an inferior process."
+(defun drepl-run-ipython ()
   (interactive)
-  (let* ((buffer (get-buffer-create drepl-ipython-buffer-name)))
-    (unless (comint-check-proc buffer)
-      (make-comint-in-buffer
-       (buffer-name buffer)
-       buffer
-       python-interpreter nil
-       "-c"
-       "import sys; exec(''.join(sys.stdin)); DRepl.instance().mainloop()")
-      (with-current-buffer buffer
-        (drepl-ipython-mode)
-        (setq-local drepl--current (make-drepl-ipython :buffer buffer))
-        (with-temp-buffer
-          (insert-file-contents drepl-ipython--start-file)
-          (process-send-string buffer (buffer-string))
-          (process-send-eof buffer))))
-    (pop-to-buffer buffer display-comint-buffer-action)))
+  (drepl--run 'drepl-ipython t))
+
+(cl-defmethod drepl--command ((_ drepl-ipython))
+  `(,python-interpreter "-c"
+    "import sys; exec(''.join(sys.stdin)); DRepl.instance().mainloop()"))
+
+(cl-defmethod drepl--init ((_ drepl-ipython))
+  (drepl-ipython-mode)
+  (let ((buffer (current-buffer)))
+    (with-temp-buffer
+      (insert-file-contents drepl-ipython--start-file)
+      (process-send-string buffer (buffer-string))
+      (process-send-eof buffer))))
+
+(cl-defmethod drepl--restart :around ((repl drepl-ipython) hard)
+  (if (and (not hard) (eq (drepl--status repl) 'ready))
+      (with-current-buffer (drepl--buffer repl)
+        (save-excursion)
+        (goto-char (process-mark (drepl--process repl)))
+        (insert-before-markers "%reset -f")
+        (drepl--eval repl "%reset -f"))
+    (cl-call-next-method)))
 
 (provide 'drepl-ipython)
 

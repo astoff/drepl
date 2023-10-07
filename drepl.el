@@ -24,8 +24,10 @@
 
 ;;; Code:
 
+(require 'eieio)
 (require 'cl-lib)
 (require 'comint)
+(require 'project)
 (eval-when-compile (require 'subr-x))
 
 ;;; Variables and customization options
@@ -41,6 +43,13 @@
 (defface drepl-prompt-invalid '((t :inherit (error default)))
   "Face for continuation prompts when input is invalid.")
 
+(defcustom drepl-directory #'drepl--project-directory
+  "Directory in which to run the REPL process.
+It can be a string (the directory name) or a function returning a
+directory name.  The function should accept one argument ASK
+which determines whether to ask or return nil when in doubt."
+  :type '(choice string function))
+
 (defvar-local drepl--current nil
   "dREPL associated to the current buffer.")
 
@@ -48,22 +57,23 @@
 
 ;;; Basic definitions
 
-(cl-defstruct drepl
-  "Base dREPL object."
-  buffer
-  status
-  (last-request-id 0)
-  requests
-  pending)
+(defclass drepl-base ()
+  ((buffer :initarg :buffer :reader drepl--buffer)
+   (status :initform nil :accessor drepl--status)
+   (last-request-id :initform 0)
+   (requests :initform nil)
+   (pending :initform nil))
+  :abstract t
+  :documentation "Base dREPL class.")
 
-(cl-defgeneric drepl-process (repl)
-  (get-buffer-process (drepl-buffer repl)))
+(defun drepl--process (repl)
+  (get-buffer-process (drepl--buffer repl)))
 
 (defun drepl--get-repl (&optional status)
   (let ((repl drepl--current))          ;TODO: choose one interactively, maybe
     (when (or (not status)
-              (and (memq (process-status (drepl-process repl)) '(run open))
-                   (eq status (drepl-status repl))))
+              (and (memq (process-status (drepl--process repl)) '(run open))
+                   (eq status (drepl--status repl))))
       repl)))
 
 (defsubst drepl--message (format-string &rest args)
@@ -85,32 +95,32 @@
 
 (cl-defgeneric drepl--send-request (repl data)
   (drepl--message "OUT: %s" (json-serialize data))
-  (setf (drepl-status repl) 'busy)
-  (process-send-string (drepl-process repl)
+  (setf (drepl--status repl) 'busy)
+  (process-send-string (drepl--process repl)
                        (format "\e%%%s\n" (json-serialize data))))
 
 (cl-defgeneric drepl--communicate (repl callback op &rest args)
   (if (eq callback 'sync)
-      (progn (unless (eq (drepl-status repl) 'ready)
+      (progn (unless (eq (drepl--status repl) 'ready)
                (user-error "%s is busy" repl))
              (let* ((result :none)
                     (cb (lambda (data) (setq result data))))
                (apply #'drepl--communicate repl cb op args)
                (while (eq result :none) (accept-process-output))
                result))
-    (let* ((id (cl-incf (drepl-last-request-id repl)))
+    (let* ((id (cl-incf (oref repl last-request-id)))
            (data `(:id ,id :op ,(symbol-name op) ,@args)))
-      (push (cons id callback) (if-let ((reqs (drepl-requests repl)))
+      (push (cons id callback) (if-let ((reqs (oref repl requests)))
                                    (cdr reqs)
-                                 (drepl-requests repl)))
-      (if (eq 'ready (drepl-status repl))
+                                 (oref repl requests)))
+      (if (eq 'ready (drepl--status repl))
           (drepl--send-request repl data)
-        (push (cons id data) (drepl-pending repl)))
+        (push (cons id data) (oref repl pending)))
       id)))
 
 (cl-defgeneric drepl--handle-notification (repl data)
   (pcase (alist-get 'op data)
-    ("status" (setf (drepl-status repl)
+    ("status" (setf (drepl--status repl)
                     (intern (alist-get 'status data))))
     ("log" (drepl--message "dREPL buffer %s: %s"
                            (buffer-name)
@@ -122,14 +132,14 @@
          (id (alist-get 'id data))
          (callback (if id
                        (prog1
-                           (alist-get id (drepl-requests drepl--current))
-                         (setf (alist-get id (drepl-requests drepl--current)
+                           (alist-get id (oref drepl--current requests))
+                         (setf (alist-get id (oref drepl--current requests)
                                           nil 'remove)
                                nil))
                      (apply-partially #'drepl--handle-notification
                                       drepl--current))))
-    (when-let ((nextreq (and (eq (drepl-status drepl--current) 'ready)
-                             (pop (drepl-pending drepl--current)))))
+    (when-let ((nextreq (and (eq (drepl--status drepl--current) 'ready)
+                             (pop (oref drepl--current pending)))))
       (drepl--send-request drepl--current nextreq))
     (when callback
       (funcall callback data))))
@@ -201,7 +211,7 @@ insert start a continuation line instead."
   (unless (derived-mode-p 'drepl-mode)
     (user-error "Can't run this command here."))
   (let-alist (when-let ((repl (unless force (drepl--get-repl 'ready)))
-                        (pmark (process-mark (drepl-process repl)))
+                        (pmark (process-mark (drepl--process repl)))
                         (code (and (>= (point) pmark)
                                    (buffer-substring-no-properties
                                     pmark (field-end)))))
@@ -250,16 +260,68 @@ insert start a continuation line instead."
 
 ;;; Initialization and restart
 
-(cl-defgeneric drepl--restart (drepl)
-  "Restart the REPL."
-  (with-current-buffer (drepl-buffer drepl)
-    (kill-process (drepl-process drepl--current))
-    (while (accept-process-output (drepl-process drepl--current)))))
+(defun drepl--project-directory (ask)
+  "Return the current project root directory.
+If it can be determined and ASK is non-nil, ask for a project;
+otherwise fall back to `default-directory'."
+  (if-let ((proj (project-current ask)))
+      (project-root proj)
+    default-directory))
 
-(defun drepl-restart ()
-  (interactive)
-  (when-let ((repl (drepl--get-repl)))
-    (drepl--restart repl)))
+(defun drepl--buffer-name (class dir)
+  (format "%s/*%s*"
+          (file-name-nondirectory
+           (directory-file-name dir))
+          class))
+
+(defun drepl--get-buffer-create (class ask)
+  "Get or create a dREPL buffer of the given CLASS.
+The directory of the buffer is determined by
+`drepl-directory'. If ASK is non-nil, allow an interactive query
+if needed."
+  (if (eq (type-of drepl--current) class)
+      (drepl--buffer drepl--current)
+    (let ((default-directory (if (stringp drepl-directory)
+                                 drepl-directory
+                               (funcall drepl-directory ask))))
+      (get-buffer-create (drepl--buffer-name class default-directory)))))
+
+(cl-defgeneric drepl--command (repl)
+  (ignore repl)
+  (error "This needs an implementation"))
+
+(cl-defgeneric drepl--init (repl)
+  (ignore repl)
+  (error "This needs an implementation"))
+
+(cl-defgeneric drepl--restart (repl _hard)
+  "Restart the REPL."
+  (with-current-buffer (drepl--buffer repl)
+    (kill-process (drepl--process repl))
+    (while (accept-process-output (drepl--process repl)))
+    (drepl--run (type-of repl) nil)))
+
+(defun drepl-restart (&optional hard)
+  (interactive "P")
+  (if-let ((repl (drepl--get-repl)))
+      (drepl--restart repl hard)
+    (user-error "No REPL to restart")))
+
+(defun drepl--run (class may-prompt)
+  (let ((buffer (drepl--get-buffer-create class may-prompt)))
+    (unless (comint-check-proc buffer)
+      (cl-letf* (((default-value 'process-environment) process-environment)
+                 ((default-value 'exec-path) exec-path)
+                 (repl (make-instance class :buffer buffer))
+                 (command (drepl--command repl)))
+        (with-current-buffer buffer
+          (apply #'make-comint-in-buffer
+               (buffer-name buffer) buffer
+               (car command) nil
+               (cdr command))
+          (drepl--init repl)
+          (setq drepl--current repl))))
+    (pop-to-buffer buffer display-comint-buffer-action)))
 
 ;;; Base major mode
 
@@ -277,6 +339,7 @@ insert start a continuation line instead."
   (push '("5161" . drepl--osc-handler) ansi-osc-handlers)
   (setq-local comint-input-sender #'drepl--send-string)
   (setq-local indent-line-function #'comint-indent-input-line-default)
+  (setq-local list-buffers-directory default-directory)
   (add-hook 'completion-at-point-functions 'drepl--complete nil t))
 
 (provide 'drepl)
