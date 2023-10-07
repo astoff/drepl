@@ -35,11 +35,11 @@
   :group 'comint
   :link '(url-link "https://github.com/astoff/drepl"))
 
-(defface drepl-prompt-incomplete '((t :inherit comint-highlight-prompt))
-  "Face for continuation prompts when current input is valid.")
+(defface drepl-prompt-incomplete '((t :inherit (comint-highlight-prompt default)))
+  "Face for continuation prompts when input is incomplete but valid.")
 
-(defface drepl-prompt-invalid '((t :inherit error))
-  "Face for continuation prompts when current input is invalid.")
+(defface drepl-prompt-invalid '((t :inherit (error default)))
+  "Face for continuation prompts when input is invalid.")
 
 (defvar-local drepl--current nil
   "dREPL associated to the current buffer.")
