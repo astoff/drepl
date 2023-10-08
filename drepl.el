@@ -273,6 +273,7 @@ insert start a continuation line instead."
 (define-derived-mode drepl-mode comint-mode "dREPL"
   "Major mode for the dREPL buffers."
   :interactive nil
+  (add-hook 'comint-output-filter-functions 'comint-osc-process-output)
   (push '("5161" . drepl--osc-handler) ansi-osc-handlers)
   (setq-local comint-input-sender #'drepl--send-string)
   (setq-local indent-line-function #'comint-indent-input-line-default)
