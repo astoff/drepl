@@ -338,33 +338,39 @@ insert start a continuation line instead."
 
 ;;; Describe operation
 
-(cl-defgeneric drepl--describe (repl callback)
+(cl-defgeneric drepl--call-eldoc (repl callback)
+  "Compute help on thing at point and pass it to Eldoc's CALLBACK function."
   (when-let ((offset (- (point) (cdr comint-last-prompt)))
              (code (when (>= offset 0)
                      (buffer-substring-no-properties
                       (cdr comint-last-prompt)
-                      (point-max)))))
-    (drepl--communicate repl callback 'describe :code code :offset offset)))
+                      (point-max))))
+             (cb (lambda (data) (apply callback (drepl--format-eldoc repl data)))))
+    (drepl--communicate repl cb 'describe :code code :offset offset)))
 
-(defun drepl--make-help-buffer (data &optional interactive)
+(cl-defgeneric drepl--format-eldoc (repl data)
+  (ignore repl)
   (let-alist data
-    (help-setup-xref (list #'drepl--make-help-buffer data) interactive)
-    (with-help-window (help-buffer)
-      (with-current-buffer standard-output
-        (when (stringp .name)
-          (insert .name)
-          (when (stringp .type) (insert " is a " .type))
-          (when (stringp .file) (insert " defined in " (buttonize .file #'find-file .file)))
-          (insert ".\n\n"))
-        (when (stringp .text)
-          (insert (ansi-color-apply .text)))))))
+    (list
+     (with-temp-buffer
+       (when .type
+        (insert .type))
+       (insert "\n\n")
+       (when .text (insert .text))
+       (when .file
+         (goto-char (point-min))
+         (unless (search-forward .file nil t)
+           (goto-char (point-max))
+           (insert "\nDefined in " .file))
+         (buttonize-region (- (point) (length .file)) (point)
+                           #'find-file .file))
+       (ansi-color-apply (buffer-string)))
+     :thing .name)))
 
-(defun drepl-describe-thing-at-point ()
-  "Pop up help on the thing at point."
-  (interactive)
-  (when-let ((repl (when (derived-mode-p 'drepl-mode)
-                     (drepl--get-repl 'ready))))
-    (drepl--describe repl #'drepl--make-help-buffer)))
+(defun drepl--eldoc-function (callback &rest _)
+  "Function intended to be a member of `eldoc-documentation-functions'."
+  (when-let ((repl (drepl--get-repl 'ready)))
+    (drepl--call-eldoc repl callback)))
 
 ;;; Initialization and restart
 
@@ -458,7 +464,6 @@ hard reset."
   :doc "Keymap for `drepl-mode'."
   :parent comint-mode-map
   "<remap> <comint-send-input>" #'drepl-send-input-maybe
-  "<remap> <display-local-help>" #'drepl-describe-thing-at-point
   "C-c M-:" #'drepl-eval
   "C-c C-b" #'drepl-eval-buffer
   "C-c C-n" #'drepl-restart)
@@ -466,12 +471,13 @@ hard reset."
 (define-derived-mode drepl-mode comint-mode "dREPL"
   "Major mode for the dREPL buffers."
   :interactive nil
-  (add-hook 'comint-output-filter-functions 'comint-osc-process-output)
+  (add-hook 'completion-at-point-functions 'drepl--complete nil t)
+  (add-hook 'eldoc-documentation-functions #'drepl--eldoc-function nil t)
+  (add-hook 'comint-output-filter-functions 'comint-osc-process-output nil t)
   (push '("5161" . drepl--osc-handler) ansi-osc-handlers)
   (setq-local comint-input-sender #'drepl--send-string)
   (setq-local indent-line-function #'comint-indent-input-line-default)
-  (setq-local list-buffers-directory default-directory)
-  (add-hook 'completion-at-point-functions 'drepl--complete nil t))
+  (setq-local list-buffers-directory default-directory))
 
 (provide 'drepl)
 

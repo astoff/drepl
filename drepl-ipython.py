@@ -166,13 +166,13 @@ class Drepl(InteractiveShell):
         name = token_at_cursor(code, offset)
         try:
             info = self.object_inspect(name)
-            text = self.object_inspect_text(name)
+            defn = info["definition"]
             reply(
                 id=id,
                 name=info["name"],
-                type=info["type_name"],
+                type=" ".join(defn.split()) if defn else info["type_name"],
                 file=info["file"],
-                text=text,
+                text=self.object_inspect_text(name),
             )
         except Exception:
             reply(id=id)
