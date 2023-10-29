@@ -123,6 +123,9 @@ which determines whether to ask or return nil when in doubt."
     ("status" (setf (drepl--status repl)
                     (intern (alist-get 'status data))))
     ("log" (drepl--message "dREPL buffer %s: %s"
+    ("getoptions"
+     (setf (drepl--status repl) 'ready)
+     (drepl--set-options repl data))
                            (buffer-name)
                            (alist-get 'text data)))))
 
@@ -292,6 +295,10 @@ if needed."
 
 (cl-defgeneric drepl--init (repl)
   (ignore repl)
+  (error "This needs an implementation"))
+
+(cl-defgeneric drepl--set-options (repl data)
+  (ignore repl data)
   (error "This needs an implementation"))
 
 (cl-defgeneric drepl--restart (repl _hard)

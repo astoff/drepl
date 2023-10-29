@@ -36,9 +36,18 @@
   :group 'python
   :link '(url-link "https://github.com/astoff/drepl"))
 
-(defcustom drepl-ipython-buffer-name "*IPython*"
-  "Name of IPython shell buffer."
-  :type 'string)
+(defcustom drepl-ipython-prompts
+  ["In [{}]: " "...: " "\e[31mOut[{}]:\e[0m " "\n" ""]
+  "Prompts of the Python dREPL.
+
+This should be a vector of 5 string: primary prompt, continuation
+prompt, output prefix, input separator, output separator.  The
+substring \"{}\" is replaced by the execution count."
+  :type '(vector (string :tag "Primary prompt")
+                 (string :tag "Continuation prompt")
+                 (string :tag "Output prompt")
+                 (string :tag "Input separator")
+                 (string :tag "Output separator")))
 
 (defvar drepl-ipython--start-file
   (expand-file-name "drepl-ipython.py"
@@ -74,6 +83,10 @@
       (insert-file-contents drepl-ipython--start-file)
       (process-send-string buffer (buffer-string))
       (process-send-eof buffer))))
+
+(cl-defmethod drepl--set-options ((repl drepl-ipython) _)
+  (drepl--communicate repl #'ignore 'setoptions
+                      :prompts drepl-ipython-prompts))
 
 (cl-defmethod drepl--restart :around ((repl drepl-ipython) hard)
   (if (and (not hard) (eq (drepl--status repl) 'ready))

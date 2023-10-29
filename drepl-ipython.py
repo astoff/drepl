@@ -105,11 +105,14 @@ class DRepl(InteractiveShell):
     def mainloop(self):
         while self.keep_running:
             try:
-                if self.current_ps1 is not None:
-                    print(self.separate_in, end="")
-                self.current_ps1 = sys.ps1.format(self.execution_count)
-                reply(op="status", status="ready")
-                line = input(self.current_ps1)
+                if self.current_ps1 is None:
+                    reply(op="getoptions")
+                    self.current_ps1, separate_in = "", ""
+                else:
+                    reply(op="status", status="ready")
+                    separate_in = self.separate_in if self.current_ps1 else ""
+                    self.current_ps1 = sys.ps1.format(self.execution_count)
+                line = input(separate_in + self.current_ps1)
                 while line.startswith("\033%"):
                     data = json.loads(line[2:])
                     op = data.pop("op")
@@ -118,14 +121,14 @@ class DRepl(InteractiveShell):
                         print("Invalid op: {}".format(op))
                         continue
                     fun(**data)
-                    if op == "eval":
+                    if op in ("eval", "setoptions"):
                         break  # Allow execution count to increment.
                     reply(op="status", status="ready")
                     line = input()
                 else:
                     print("Invalid input")
             except KeyboardInterrupt as e:
-                print(type(e).__name__)
+                print(e.__class__.__name__)
             except EOFError:
                 reply(op="status", status="busy")
                 if (not self.confirm_exit) or self.ask_yes_no(
@@ -148,7 +151,7 @@ class DRepl(InteractiveShell):
 
     def drepl_checkinput(self, id, code):
         status, indent = self.check_complete(code)
-        prompt = sys.ps2.format(self.execution_count).ljust(len(self.current_ps1))
+        prompt = sys.ps2.format(self.execution_count).rjust(len(self.current_ps1))
         reply(id=id, status=status, indent=indent, prompt=prompt)
 
     def drepl_describe(self, id, code, offset):
@@ -165,3 +168,8 @@ class DRepl(InteractiveShell):
             )
         except Exception:
             reply(id=id)
+
+    def drepl_setoptions(self, id, prompts=None):
+        if prompts:
+            sys.ps1, sys.ps2, sys.ps3, self.separate_in, self.separate_out = prompts
+        reply(id=id)
