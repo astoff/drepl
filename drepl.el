@@ -215,7 +215,27 @@ STRING to the process."
 (defun drepl-eval (code)
   "Evaluate CODE string in the current buffer's REPL."
   (interactive (list (read-from-minibuffer "Evaluate: ")))
-  (drepl--eval (drepl--get-repl) code))
+  (drepl--eval (or (drepl--get-repl)
+                   (user-error (substitute-command-keys "\
+No REPL (use \\[drepl-associate] to associate one)")))
+               code))
+
+(defun drepl-eval-region (start end)
+  "Evaluate region in the current buffer's REPL.
+START and END are the region bounds."
+  (interactive "r")
+  (drepl-eval (buffer-substring-no-properties start end)))
+
+(defun drepl-eval-buffer (&optional buffer)
+  "Evaluate BUFFER in the REPL associated to the current buffer.
+By default, BUFFER is the current buffer.  Interactively, select a
+buffer first if a prefix argument is given or the current buffer
+is a dREPL buffer."
+  (interactive (list (when (or current-prefix-arg
+                               (derived-mode-p 'drepl-mode))
+                       (read-buffer "Evaluate buffer: "))))
+  (with-current-buffer (or buffer (current-buffer))
+    (drepl-eval-region (point-min) (point-max))))
 
 (defun drepl-send-input-maybe (&optional force) ;Change this to `newline', with opposite logic
   "Like `comint-send-input', but first check if input is complete.
@@ -368,6 +388,8 @@ hard reset."
   :parent comint-mode-map
   "<remap> <comint-send-input>" #'drepl-send-input-maybe
   "<remap> <display-local-help>" #'drepl-describe-thing-at-point
+  "C-c M-:" #'drepl-eval
+  "C-c C-b" #'drepl-eval-buffer
   "C-c C-n" #'drepl-restart)
 
 (define-derived-mode drepl-mode comint-mode "dREPL"
