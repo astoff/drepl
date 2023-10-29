@@ -157,6 +157,82 @@ and :id entries."
     (when callback
       (funcall callback data))))
 
+;;; Buffer association
+
+(defun drepl--get-repl (&optional status ensure)
+  "Return a REPL associated to the current buffer, or nil if none.
+
+This is either the REPL pointed by `drepl--current' or a REPL
+running in some parent of `default-directory' if there is exactly
+one such choice.
+
+If STATUS is non-nil, additionally check that the REPL is alive
+and has the given status.
+
+If ENSURE is non-nil, produce an error if there is no REPL
+associated to the current buffer."
+  (let ((repl (cond
+               ((recordp drepl--current) drepl--current)
+               ((buffer-live-p drepl--current)
+                (buffer-local-value 'drepl--current drepl--current))
+               (t (let* ((dir default-directory)
+                         (buffers (seq-filter
+                                   (lambda (buffer)
+                                     (with-current-buffer buffer
+                                       (and (derived-mode-p 'drepl-mode)
+                                            (file-in-directory-p
+                                             dir default-directory))))
+                                   (buffer-list))))
+                  (when (length= buffers 1)
+                    (buffer-local-value 'drepl--current (car buffers))))))))
+    (when (and ensure (not repl))
+      (user-error (substitute-command-keys
+                   "No REPL, use \\[drepl-associate] to choose one")))
+    (when (or (not status)
+              (and repl
+                   (memq (process-status (drepl--process repl))
+                         '(run open))
+                   (eq status (drepl--status repl))))
+      repl)))
+
+(defun drepl--read-buffer (prompt)
+  "Read the name of a REPL buffer using PROMPT."
+  (read-buffer prompt
+               (when (buffer-live-p drepl--current)
+                 drepl--current)
+               t
+               (lambda (b)
+                 (with-current-buffer (car b)
+                   (derived-mode-p 'drepl-mode)))))
+
+(defun drepl-associate ()
+  "Associate a REPL to the current buffer.
+
+Commands like `drepl-eval' will then target the selected REPL.
+
+If a target REPL has not yet been chosen explicitly through this
+command, the target REPL is selected automatically as long as
+there is exactly one REPL buffer running in the current directory
+or one of its parents.
+
+With a prefix argument, remove an explicit REPL association."
+  (interactive)
+  (when (derived-mode-p 'drepl-mode)
+    (user-error "Can't associate another REPL buffer to a REPL"))
+  (let ((buffer (unless current-prefix-arg
+                  (drepl--read-buffer "Associate REPL to this buffer: "))))
+    (setq drepl--current (and buffer (get-buffer buffer)))))
+
+(defun drepl-pop-to-repl (ask)
+  "Pop to the REPL associated to the current buffer.
+With a prefix argument or non-nil ASK argument, choose a REPL
+interactively."
+  (interactive "P")
+  (pop-to-buffer
+   (if ask
+       (drepl--read-buffer "Pop to REPL: ")
+     (drepl--buffer (drepl--get-repl nil t)))))
+
 ;;; Complete operation
 
 (defun drepl--capf-annotate (cand)
@@ -215,10 +291,7 @@ STRING to the process."
 (defun drepl-eval (code)
   "Evaluate CODE string in the current buffer's REPL."
   (interactive (list (read-from-minibuffer "Evaluate: ")))
-  (drepl--eval (or (drepl--get-repl)
-                   (user-error (substitute-command-keys "\
-No REPL (use \\[drepl-associate] to associate one)")))
-               code))
+  (drepl--eval (drepl--get-repl nil t) code))
 
 (defun drepl-eval-region (start end)
   "Evaluate region in the current buffer's REPL.
@@ -360,9 +433,7 @@ variables without killing the interpreter.  In those cases, a
 prefix argument or non-nil HARD argument can be used to force a
 hard reset."
   (interactive "P")
-  (drepl--restart (or (drepl--get-repl)
-                      (user-error "No REPL"))
-                  hard))
+  (drepl--restart (drepl--get-repl nil t) hard))
 
 (defun drepl--run (class may-prompt)
   (let ((buffer (drepl--get-buffer-create class may-prompt)))
