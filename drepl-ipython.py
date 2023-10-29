@@ -3,6 +3,8 @@
 import base64
 import json
 import sys
+from pathlib import Path
+from tempfile import mkstemp
 
 from IPython.core.completer import provisionalcompleter
 from IPython.core.displayhook import DisplayHook
@@ -29,9 +31,12 @@ def reply(**data):
     print(f"\033]5161;{json.dumps(data)}\033\\", end="")
 
 
-class DReplDisplayHook(DisplayHook):
+class DreplError(Exception):
+    pass
+
+
+class DreplDisplayHook(DisplayHook):
     def write_output_prompt(self):
-        """Write the output prompt."""
         print(self.shell.separate_out, end="")
         outprompt = sys.ps3.format(self.shell.execution_count)
         if self.do_full_cache:
@@ -46,7 +51,7 @@ class DReplDisplayHook(DisplayHook):
 
 
 @InteractiveShellABC.register
-class DRepl(InteractiveShell):
+class Drepl(InteractiveShell):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.current_ps1 = None
@@ -66,7 +71,7 @@ class DRepl(InteractiveShell):
         print(self.banner)
 
     system = InteractiveShell.system_raw
-    displayhook_class = DReplDisplayHook
+    displayhook_class = DreplDisplayHook
 
     def make_mime_renderer(self, type, encoder):
         def renderer(data, meta=None):
@@ -74,9 +79,6 @@ class DRepl(InteractiveShell):
                 data = encoder(data)
             header = json.dumps({**(meta or {}), "type": type})
             if len(data) > self.mime_size_limit:
-                from pathlib import Path
-                from tempfile import mkstemp
-
                 fdesc, fname = mkstemp()
                 with open(fdesc, "wb") as f:
                     f.write(data)
@@ -105,46 +107,52 @@ class DRepl(InteractiveShell):
     def mainloop(self):
         while self.keep_running:
             try:
-                if self.current_ps1 is None:
-                    reply(op="getoptions")
-                    self.current_ps1, separate_in = "", ""
-                else:
-                    reply(op="status", status="ready")
-                    separate_in = self.separate_in if self.current_ps1 else ""
-                    self.current_ps1 = sys.ps1.format(self.execution_count)
-                line = input(separate_in + self.current_ps1)
-                while line.startswith("\033%"):
-                    data = json.loads(line[2:])
-                    op = data.pop("op")
-                    fun = getattr(self, "drepl_{}".format(op), None)
-                    if fun is None:
-                        print("Invalid op: {}".format(op))
-                        continue
-                    fun(**data)
-                    if op in ("eval", "setoptions"):
-                        break  # Allow execution count to increment.
-                    reply(op="status", status="ready")
-                    line = input()
-                else:
-                    print("Invalid input")
-            except KeyboardInterrupt as e:
-                print(e.__class__.__name__)
+                self.run_repl()
             except EOFError:
                 reply(op="status", status="busy")
                 if (not self.confirm_exit) or self.ask_yes_no(
                     "Do you really want to exit ([y]/n)?", "y", "n"
                 ):
                     self.ask_exit()
+            except (DreplError, KeyboardInterrupt) as e:
+                print(str(e) or e.__class__.__name__)
+
+    def run_repl(self):
+        "Print prompt, run REPL until a new prompt is needed."
+        if self.current_ps1 is None:
+            reply(op="getoptions")
+            self.current_ps1, separate_in = "", ""
+        else:
+            reply(op="status", status="ready")
+            separate_in = self.separate_in if self.current_ps1 else ""
+            self.current_ps1 = sys.ps1.format(self.execution_count)
+        line = input(separate_in + self.current_ps1)
+        while True:
+            if not line.startswith("\033%"):
+                raise DreplError("Invalid input")
+            data = json.loads(line[2:])
+            op = data.pop("op")
+            fun = getattr(self, "drepl_{}".format(op), None)
+            if fun is None:
+                raise DreplError("Invalid op: {}".format(op))
+            fun(**data)
+            if op == "eval":
+                self.execution_count += 1
+                break
+            elif op == "setoptions":
+                break
+            else:
+                reply(op="status", status="ready")
+                line = input()
 
     def drepl_eval(self, id, code):
         r = self.run_cell(code)
-        #reply(id=id, result=repr(r.result))
         reply(id=id)
 
     def drepl_complete(self, id, code, offset):
         with provisionalcompleter():
             r = [
-                {"text": c.text, "annotation": c.signature}
+                {"text": c.text, "annot": c.signature}
                 for c in self.Completer.completions(code, offset)
             ]
         reply(id=id, candidates=r or None)

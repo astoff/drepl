@@ -51,9 +51,11 @@ which determines whether to ask or return nil when in doubt."
   :type '(choice string function))
 
 (defvar-local drepl--current nil
-  "dREPL associated to the current buffer.")
+  "The dREPL associated to the current buffer.
+In dREPL buffers, this is the dREPL object itself.  In all other
+buffers, this is the dREPL buffer or nil.")
 
-(defvar drepl--verbose t)
+(defvar drepl--verbose nil)
 
 ;;; Basic definitions
 
@@ -67,25 +69,28 @@ which determines whether to ask or return nil when in doubt."
   :documentation "Base dREPL class.")
 
 (defun drepl--process (repl)
+  "The underlying process of dREPL object REPL."
   (get-buffer-process (drepl--buffer repl)))
 
-(defun drepl--get-repl (&optional status)
-  (let ((repl drepl--current))          ;TODO: choose one interactively, maybe
-    (when (or (not status)
-              (and (memq (process-status (drepl--process repl)) '(run open))
-                   (eq status (drepl--status repl))))
-      repl)))
-
-(defsubst drepl--message (format-string &rest args)
-  (when drepl--verbose
-    (apply #'message format-string args)))
+(defmacro drepl--message (fmtstring &rest args)
+  "Write a message to *drepl-log* buffer if `drepl--verbose' is non-nil.
+The message is formed by calling `format' with FMTSTRING and ARGS."
+  (let ((msg (lambda (&rest args)
+               (with-current-buffer (get-buffer-create "*drepl-log*")
+                 (goto-char (point-max))
+                 (when-let ((w (get-buffer-window)))
+                   (set-window-point w (point)))
+                 (insert (propertize (format-time-string "[%T] ") 'face 'error)
+                         (apply #'format args)
+                         ?\n)))))
+    `(when drepl--verbose (funcall ,msg ,fmtstring ,@args))))
 
 ;;; Communication protocol
 
 (defalias 'drepl--json-decode
   (if (json-available-p)
       (lambda (s)
-        (json-parse-string s :object-type 'alist))
+        (json-parse-string s :object-type 'alist :null-object nil))
     (error "Not implemented")))
 
 (defalias 'drepl--json-encode
@@ -94,19 +99,24 @@ which determines whether to ask or return nil when in doubt."
     (error "Not implemented")))
 
 (cl-defgeneric drepl--send-request (repl data)
-  (drepl--message "OUT: %s" (json-serialize data))
+  "Send request data to REPL.
+REPL must be in `ready' state and transitions to `busy' state.
+DATA is a plist containing the request arguments, as well as :op
+and :id entries."
   (setf (drepl--status repl) 'busy)
-  (process-send-string (drepl--process repl)
-                       (format "\e%%%s\n" (json-serialize data))))
+  (let ((encoded (drepl--json-encode data)))
+    (drepl--message "send %s" encoded)
+    (process-send-string (drepl--process repl)
+                         (format "\e%%%s\n" encoded))))
 
 (cl-defgeneric drepl--communicate (repl callback op &rest args)
   (if (eq callback 'sync)
       (progn (unless (eq (drepl--status repl) 'ready)
                (user-error "%s is busy" repl))
-             (let* ((result :none)
+             (let* ((result :pending)
                     (cb (lambda (data) (setq result data))))
                (apply #'drepl--communicate repl cb op args)
-               (while (eq result :none) (accept-process-output))
+               (while (eq result :pending) (accept-process-output))
                result))
     (let* ((id (cl-incf (oref repl last-request-id)))
            (data `(:id ,id :op ,(symbol-name op) ,@args)))
@@ -122,15 +132,15 @@ which determines whether to ask or return nil when in doubt."
   (pcase (alist-get 'op data)
     ("status" (setf (drepl--status repl)
                     (intern (alist-get 'status data))))
-    ("log" (drepl--message "dREPL buffer %s: %s"
     ("getoptions"
      (setf (drepl--status repl) 'ready)
      (drepl--set-options repl data))
+    ("log" (drepl--message "log:%s: %s"
                            (buffer-name)
                            (alist-get 'text data)))))
 
 (defun drepl--osc-handler (_cmd text)
-  (drepl--message " IN: %s" text)
+  (drepl--message "read %s" text)
   (let* ((data (drepl--json-decode text))
          (id (alist-get 'id data))
          (callback (if id
@@ -163,7 +173,7 @@ which determines whether to ask or return nil when in doubt."
                                         :offset offset))))
     (mapcar (lambda (c)
               (let-alist c
-                (propertize .text 'drepl--annot .annotation)))
+                (propertize .text 'drepl--annot .annot)))
             (alist-get 'candidates response))))
 
 (defun drepl--complete ()
@@ -191,18 +201,19 @@ which determines whether to ask or return nil when in doubt."
   (drepl--communicate repl #'ignore 'eval :code code))
 
 (defun drepl--send-string (proc string)
-  "Like `comint-send-string', but checks whether PROC's status is `ready'.
+  "Like `comint-send-string', but check whether PROC's status is `ready'.
 If it is, then make an eval request, otherwise just send the raw
 STRING to the process."
-  (drepl--message "SND: %s" string)
   (let ((repl (with-current-buffer
                   (if proc (process-buffer proc) (current-buffer))
                 (drepl--get-repl 'ready))))
     (if repl
         (drepl--eval repl string)
+      (drepl--message "send %s" string)
       (comint-simple-send proc string))))
 
 (defun drepl-eval (code)
+  "Evaluate CODE string in the current buffer's REPL."
   (interactive (list (read-from-minibuffer "Evaluate: ")))
   (drepl--eval (drepl--get-repl) code))
 
@@ -212,7 +223,7 @@ If the input is incomplete or invalid code and FORCE is nil,
 insert start a continuation line instead."
   (interactive "P")
   (unless (derived-mode-p 'drepl-mode)
-    (user-error "Can't run this command here."))
+    (user-error "Can't run this command here"))
   (let-alist (when-let ((repl (unless force (drepl--get-repl 'ready)))
                         (pmark (process-mark (drepl--process repl)))
                         (code (and (>= (point) pmark)
@@ -256,6 +267,7 @@ insert start a continuation line instead."
           (insert (ansi-color-apply .text)))))))
 
 (defun drepl-describe-thing-at-point ()
+  "Pop up help on the thing at point."
   (interactive)
   (when-let ((repl (when (derived-mode-p 'drepl-mode)
                      (drepl--get-repl 'ready))))
@@ -271,16 +283,17 @@ otherwise fall back to `default-directory'."
       (project-root proj)
     default-directory))
 
-(defun drepl--buffer-name (class dir)
+(defun drepl--buffer-name (class directory)
+  "Buffer name for a REPL of the given CLASS running in DIRECTORY."
   (format "%s/*%s*"
           (file-name-nondirectory
-           (directory-file-name dir))
-          class))
+           (directory-file-name directory))
+          (or (get class 'drepl--buffer-name) class)))
 
 (defun drepl--get-buffer-create (class ask)
   "Get or create a dREPL buffer of the given CLASS.
 The directory of the buffer is determined by
-`drepl-directory'. If ASK is non-nil, allow an interactive query
+`drepl-directory'.  If ASK is non-nil, allow an interactive query
 if needed."
   (if (eq (type-of drepl--current) class)
       (drepl--buffer drepl--current)
@@ -290,29 +303,46 @@ if needed."
       (get-buffer-create (drepl--buffer-name class default-directory)))))
 
 (cl-defgeneric drepl--command (repl)
+  "The command to start the REPL interpreter as a list of strings."
   (ignore repl)
   (error "This needs an implementation"))
 
 (cl-defgeneric drepl--init (repl)
+  "Initialization code for REPL.
+This function is called in the REPL buffer after a Comint has
+been started in it.  It should call `drepl-mode' or a derived
+mode and perform all other desired initialization procedures."
   (ignore repl)
   (error "This needs an implementation"))
 
 (cl-defgeneric drepl--set-options (repl data)
+  "Implementation of the `setoptions' operation.
+This method is called when the REPL sends a `getoptions'
+notification.  The REPL is in `ready' state when this happens.
+The notification message is passed as DATA."
   (ignore repl data)
   (error "This needs an implementation"))
 
-(cl-defgeneric drepl--restart (repl _hard)
-  "Restart the REPL."
+(cl-defgeneric drepl--restart (repl hard)
+  "Generic method to restart a REPL.
+HARD should be as described in `drepl-restart', but it not used
+in the default implementation."
+  (ignore hard)
   (with-current-buffer (drepl--buffer repl)
     (kill-process (drepl--process repl))
     (while (accept-process-output (drepl--process repl)))
     (drepl--run (type-of repl) nil)))
 
 (defun drepl-restart (&optional hard)
+  "Restart the current REPL.
+Some REPLs by default perform a soft reset by deleting all user
+variables without killing the interpreter.  In those cases, a
+prefix argument or non-nil HARD argument can be used to force a
+hard reset."
   (interactive "P")
-  (if-let ((repl (drepl--get-repl)))
-      (drepl--restart repl hard)
-    (user-error "No REPL to restart")))
+  (drepl--restart (or (drepl--get-repl)
+                      (user-error "No REPL"))
+                  hard))
 
 (defun drepl--run (class may-prompt)
   (let ((buffer (drepl--get-buffer-create class may-prompt)))
@@ -322,6 +352,7 @@ if needed."
                  (repl (make-instance class :buffer buffer))
                  (command (drepl--command repl)))
         (with-current-buffer buffer
+          (drepl--message "starting %s" buffer)
           (apply #'make-comint-in-buffer
                (buffer-name buffer) buffer
                (car command) nil
@@ -351,4 +382,5 @@ if needed."
 
 (provide 'drepl)
 
+; LocalWords:  dREPL
 ;;; drepl.el ends here

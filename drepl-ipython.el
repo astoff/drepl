@@ -31,7 +31,7 @@
 ;;; Customization options
 
 (defgroup drepl-ipython nil
-  "IPython shell implemented via dREPL"
+  "IPython shell implemented via dREPL."
   :group 'drepl
   :group 'python
   :link '(url-link "https://github.com/astoff/drepl"))
@@ -56,28 +56,23 @@ substring \"{}\" is replaced by the execution count."
                       default-directory))
   "File name of the startup script.")
 
-(define-derived-mode drepl-ipython-mode drepl-mode "IPython"
-  "Major mode for the IPython shell.
-
-\\<drepl-ipython-mode-map>"
-  :syntax-table python-mode-syntax-table
-  :interactive nil
-  (setq-local comint-indirect-setup-function #'python-mode)
-  (push '("5151" . comint-mime-osc-handler) ansi-osc-handlers))
-
 (defclass drepl-ipython (drepl-base) nil)
+(put 'drepl-ipython 'drepl--buffer-name "IPython")
 
 ;;;###autoload
 (defun drepl-run-ipython ()
+  "Start the IPython interpreter."
   (interactive)
   (drepl--run 'drepl-ipython t))
 
 (cl-defmethod drepl--command ((_ drepl-ipython))
   `(,python-interpreter "-c"
-    "import sys; exec(''.join(sys.stdin)); DRepl.instance().mainloop()"))
+    "import sys; exec(''.join(sys.stdin)); Drepl.instance().mainloop()"))
 
 (cl-defmethod drepl--init ((_ drepl-ipython))
-  (drepl-ipython-mode)
+  (drepl-mode)
+  (setq-local comint-indirect-setup-function #'python-mode)
+  (push '("5151" . comint-mime-osc-handler) ansi-osc-handlers)
   (let ((buffer (current-buffer)))
     (with-temp-buffer
       (insert-file-contents drepl-ipython--start-file)

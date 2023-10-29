@@ -29,14 +29,10 @@
 (require 'lua-mode)
 
 (defgroup drepl-lua nil
-  "Lua shell implemented via dREPL"
+  "Lua shell implemented via dREPL."
   :group 'drepl
   :group 'lua
   :link '(url-link "https://github.com/astoff/drepl"))
-
-(defcustom drepl-lua-buffer-name "*Lua*"
-  "Name of Lua shell buffer."
-  :type 'string)
 
 (defvar drepl-lua--start-file
   (expand-file-name "drepl-lua.lua"
@@ -46,25 +42,20 @@
   "File name of the startup script.")
 
 (defclass drepl-lua (drepl-base) nil)
+(put 'drepl-lua 'drepl--buffer-name "Lua")
 
 ;;;###autoload
 (defun drepl-run-lua ()
+  "Start the Lua interpreter."
   (interactive)
   (drepl--run 'drepl-lua t))
-
-(define-derived-mode drepl-lua-mode drepl-mode "Lua"
-  "Major mode for the Lua shell.
-
-\\<drepl-lua-mode-map>"
-  :syntax-table lua-mode-syntax-table
-  :interactive nil
-  (setq-local comint-indirect-setup-function #'lua-mode))
 
 (cl-defmethod drepl--command ((_ drepl-lua))
   '("lua" "-v" "-e" "loadfile()():main()"))
 
 (cl-defmethod drepl--init ((_ drepl-lua))
-  (drepl-lua-mode)
+  (drepl-mode)
+  (setq-local comint-indirect-setup-function #'lua-mode)
   (let ((buffer (current-buffer)))
     (with-temp-buffer
       (insert-file-contents drepl-lua--start-file)
