@@ -20,7 +20,8 @@
 
 ;;; Commentary:
 
-;; 
+;; This file defines a REPL for Lua.  The required Lua packages can be
+;; installed with `luarocks install dkjson luarepl'.
 
 ;;; Code:
 

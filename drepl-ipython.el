@@ -20,7 +20,9 @@
 
 ;;; Commentary:
 
-;; 
+;; This file defines a REPL based on the IPython interpreter.  It
+;; depends on Python and the ipython package, which can be installed
+;; with `pip install ipython'.
 
 ;;; Code:
 

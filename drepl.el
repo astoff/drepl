@@ -20,7 +20,16 @@
 
 ;;; Commentary:
 
-;; 
+;; dREPL is a collection of fully featured language shells for Emacs
+;; built on top of Comint.  It can be described as a REPL protocol for
+;; the dumb terminal.  This file defines the user interface and a base
+;; EIEIO class for client code.  The other files in this package
+;; define REPLs for specific interpreters.  Each of them is comprised
+;; of one Elisp file defining a REPL subclass and one file in the
+;; target programming language implementing the server side of the
+;; protocol.
+
+;; See the README for a description of the communication protocol.
 
 ;;; Code:
 
