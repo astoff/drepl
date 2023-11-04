@@ -28,7 +28,7 @@
 
 (require 'comint-mime)
 (require 'drepl)
-(require 'python)
+(require 'python)                       ;For `python-interpreter' only
 
 ;;; Customization options
 
@@ -73,7 +73,7 @@ substring \"{}\" is replaced by the execution count."
 
 (cl-defmethod drepl--init ((_ drepl-ipython))
   (drepl-mode)
-  (setq-local comint-indirect-setup-function #'python-mode)
+  (drepl--adapt-comint-to-mode ".py")
   (push '("5151" . comint-mime-osc-handler) ansi-osc-handlers)
   (let ((buffer (current-buffer)))
     (with-temp-buffer

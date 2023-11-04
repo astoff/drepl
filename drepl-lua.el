@@ -27,7 +27,6 @@
 
 ;;; Customization options
 (require 'drepl)
-(require 'lua-mode)
 
 (defgroup drepl-lua nil
   "Lua shell implemented via dREPL."
@@ -60,7 +59,7 @@
 
 (cl-defmethod drepl--init ((_ drepl-lua))
   (drepl-mode)
-  (setq-local comint-indirect-setup-function #'lua-mode)
+  (drepl--adapt-comint-to-mode ".lua")
   (let ((buffer (current-buffer)))
     (with-temp-buffer
       (insert-file-contents drepl-lua--start-file)

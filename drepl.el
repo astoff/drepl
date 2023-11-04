@@ -37,7 +37,9 @@
 (require 'cl-lib)
 (require 'comint)
 (require 'project)
-(eval-when-compile (require 'subr-x))
+(eval-when-compile
+  (require 'derived)
+  (require 'subr-x))
 
 ;;; Variables and customization options
 
@@ -469,6 +471,28 @@ mode and perform all other desired initialization procedures.")
 This method is called when the REPL sends a `getoptions'
 notification.  The REPL is in `ready' state when this happens.
 The notification message is passed as DATA.")
+
+(defun drepl--adapt-comint-to-mode (mode)
+  "Set up editing in a Comint buffer to resemble major MODE.
+
+Specifically:
+- Set `comint-indirect-setup-function' to MODE.
+- Set syntax table to MODE-syntax-table.
+
+MODE can be a major mode symbol or a string to look up an
+appropriate mode using `auto-mode-alist'."
+  (when (stringp mode)
+    (setq mode (cdr (assoc mode auto-mode-alist #'string-match-p))))
+  (when (functionp mode)
+    (setq mode (alist-get mode major-mode-remap-alist mode))
+    (when (autoloadp (symbol-function mode))
+      (autoload-do-load (symbol-function mode) mode))
+    (setq-local comint-indirect-setup-function mode)
+    (when-let ((syntbl-sym (derived-mode-syntax-table-name mode))
+               (syntbl-val (when (boundp syntbl-sym)
+                             (symbol-value syntbl-sym))))
+      (when (syntax-table-p syntbl-val)
+        (set-syntax-table syntbl-val)))))
 
 (defun drepl--run (class may-prompt)
   "Pop to a REPL of the given CLASS or start a new one.
