@@ -35,6 +35,10 @@
   :group 'lua
   :link '(url-link "https://github.com/astoff/drepl"))
 
+(defcustom drepl-lua-program "lua"
+  "Name of the Lua executable."
+  :type 'string)
+
 (defvar drepl-lua--start-file
   (expand-file-name "drepl-lua.lua"
                     (if load-file-name
@@ -52,7 +56,7 @@
   (drepl--run 'drepl-lua t))
 
 (cl-defmethod drepl--command ((_ drepl-lua))
-  '("lua" "-v" "-e" "loadfile()():main()"))
+  `(,drepl-lua-program "-v" "-e" "loadfile()():main()"))
 
 (cl-defmethod drepl--init ((_ drepl-lua))
   (drepl-mode)
