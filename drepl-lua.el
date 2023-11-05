@@ -45,7 +45,10 @@
                       default-directory))
   "File name of the startup script.")
 
-(defclass drepl-lua (drepl-base) nil)
+(cl-defstruct (drepl-lua
+               (:include drepl-base)
+               (:copier nil)
+               (:conc-name drepl-lua--)))
 (put 'drepl-lua 'drepl--buffer-name "Lua")
 
 ;;;###autoload

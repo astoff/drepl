@@ -58,7 +58,10 @@ substring \"{}\" is replaced by the execution count."
                       default-directory))
   "File name of the startup script.")
 
-(defclass drepl-ipython (drepl-base) nil)
+(cl-defstruct (drepl-ipython
+               (:include drepl-base)
+               (:copier nil)
+               (:conc-name drepl-ipython--)))
 (put 'drepl-ipython 'drepl--buffer-name "IPython")
 
 ;;;###autoload
