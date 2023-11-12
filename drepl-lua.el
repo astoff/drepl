@@ -45,17 +45,8 @@
                       default-directory))
   "File name of the startup script.")
 
-(cl-defstruct (drepl-lua
-               (:include drepl-base)
-               (:copier nil)
-               (:conc-name drepl-lua--)))
-(put 'drepl-lua 'drepl--buffer-name "Lua")
-
-;;;###autoload
-(defun drepl-run-lua ()
-  "Start the Lua interpreter."
-  (interactive)
-  (drepl--run 'drepl-lua t))
+;;;###autoload (autoload 'drepl-lua "drepl-lua" nil t)
+(drepl--define drepl-lua :display-name "Lua")
 
 (cl-defmethod drepl--command ((_ drepl-lua))
   `(,drepl-lua-program "-v" "-e" "loadfile()():main()"))

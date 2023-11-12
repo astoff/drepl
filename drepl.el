@@ -91,8 +91,39 @@ List of requests pending to be sent."))
   "The underlying process of dREPL object REPL."
   (get-buffer-process (drepl--buffer repl)))
 
+(cl-defmacro drepl--define (name &key display-name docstring extra-slots)
+  "Define a REPL type.
+NAME is a symbol to name the struct type identifying the REPL as
+well as the interactive command to launch it.
+
+DISPLAY-NAME is a string used to generate the default buffer name
+of REPL instances, among other things.
+
+DOCSTRING is the docstring of the command NAME.
+
+EXTRA-SLOTS is a list of slots passed to `cl-defstruct' in
+addition to those of `drepl-base'."
+  (let* ((display-name (or display-name (symbol-name name)))
+         (conc-name (intern (format "%s--" name))))
+    `(progn
+       (defun ,name ()
+         ,(or docstring
+              (format "Start the %s interpreter." display-name))
+         (interactive)
+         (drepl--run ',name t))
+       (cl-defstruct (,name
+                      (:include drepl-base)
+                      (:copier nil)
+                      (:constructor nil)
+                      (:constructor ,(intern (format "%screate" conc-name)))
+                      (:conc-name ,conc-name))
+         ,(format "Structure keeping the state of a %s REPL." display-name)
+         ,@extra-slots)
+       (put ',name 'drepl--display-name ,display-name))))
+
 (defun drepl--log-message-1 (&rest args)
-  "Helper function for `drepl--log-message'."
+  "Helper function for `drepl--log-message'.
+ARGS is the entire argument list of `drepl--log-message'."
   (with-current-buffer (get-buffer-create drepl--log-buffer)
     (goto-char (point-max))
     (when-let ((w (get-buffer-window)))
@@ -451,7 +482,7 @@ project; otherwise fall back to `default-directory'."
   (format "%s/*%s*"
           (file-name-nondirectory
            (directory-file-name directory))
-          (or (get type 'drepl--buffer-name) type)))
+          (or (get type 'drepl--display-name) type)))
 
 (defun drepl--get-buffer-create (type may-prompt)
   "Get or create a dREPL buffer of the given TYPE.
@@ -513,7 +544,7 @@ it, if necessary."
     (unless (comint-check-proc buffer)
       (cl-letf* (((default-value 'process-environment) process-environment)
                  ((default-value 'exec-path) exec-path)
-                 (constructor (intern (format "make-%s" type)))
+                 (constructor (intern (format "%s--create" type)))
                  (repl (funcall constructor :buffer buffer))
                  (command (drepl--command repl)))
         (with-current-buffer buffer
@@ -548,5 +579,5 @@ it, if necessary."
 
 (provide 'drepl)
 
-; LocalWords:  dREPL
+; LocalWords:  dREPL drepl
 ;;; drepl.el ends here
