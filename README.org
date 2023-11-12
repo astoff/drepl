@@ -1,5 +1,7 @@
 #+title: dREPL
 
+#+html: <p align="center"><a href="http://elpa.gnu.org/packages/drepl.html"><img alt="GNU ELPA" src="https://elpa.gnu.org/packages/drepl.svg"/></a></p>
+
 dREPL is a collection of fully featured language shells for Emacs.  At
 the moment it supports the following interpreters:
 

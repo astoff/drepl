@@ -1,9 +1,12 @@
 ;;; drepl.el --- REPL protocol for the dumb terminal   -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2023  Augusto Stoffel
+;; Copyright (C) 2023  Free Software Foundation, Inc.
 
 ;; Author: Augusto Stoffel <arstoffel@gmail.com>
 ;; Keywords: languages, processes
+;; URL: https://github.com/astoff/drepl
+;; Package-Requires: ((emacs "29.1") (comint-mime "0.3"))
+;; Version: 0.1
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
