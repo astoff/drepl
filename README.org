@@ -80,79 +80,86 @@ message contains the following fields:
 
 The following operations are defined:
 
-- =status= (interpreter notification): The interpreter indicates
-  whether or not it is ready to receive a framed operation message.
+*** =status= (interpreter notification)
+The interpreter indicates whether or not it is ready to receive a
+framed operation message.
 
-  Parameters:
-  - =status=: Either =ready= (subprocess is expecting a
-    framed message) or =busy= (IO, if it occurs, should not be
-    framed).
+Parameters:
+- =status=: Either =ready= (subprocess is expecting a framed message)
+  or =busy= (IO, if it occurs, should not be framed).
 
-  Note: Some changes in the tracked state happen implicitly.  Most
-  importantly, when an editor request is sent, tracked state changes
-  to =busy=.
+Note: Some changes in the tracked state happen implicitly.  Most
+importantly, when an editor request is sent, tracked state changes to
+=busy=.
 
-- =eval= (editor request).  Evaluate some code, blocking until the
-  computation is complete.
+*** =eval= (editor request)
+Evaluate some code, blocking until the computation is complete.
 
-  Parameters:
-  - =code=: The code to be evaluated
+Parameters:
+- =code=: The code to be evaluated
 
-  Result: The response contains no data (that is, it includes only the
-  original request id).  The REPL should evaluate the code and print
-  the result.
+Result: The response contains no data (that is, it includes only the
+original request id).  The REPL should evaluate the code and print the
+result.
 
-- =complete= (editor request): Get completions at point.
+*** =complete= (editor request)
 
-  Parameters:
-  - =code=: A code snippet containing the completion point.
-  - =offset=: The offset (zero-based) from start of =code= to
-    the point of completion.
+Get completions at point.
 
-  Response:
-  - =candidates= (optional): A list of objects, each containing the
-    following attributes.
-    - =text=: The completed text, including the existing prefix.
-    - =annot=: Annotation text to be displayed next to the candidate
-      in the completion UI.
+Parameters:
+- =code=: A code snippet containing the completion point.
+- =offset=: The offset (zero-based) from start of =code= to
+  the point of completion.
 
-- =checkinput= (editor request): Check if a continuation line is
-  needed.
+Response:
+- =candidates= (optional): A list of objects, each containing the
+  following attributes.
+  - =text=: The completed text, including the existing prefix.
+  - =annot=: Annotation text to be displayed next to the candidate
+    in the completion UI.
 
-  Parameters:
-  - =code= (string): A code snippet.
+*** =checkinput= (editor request)
 
-  Result:
-  - =status=: One of =complete= (the code is valid),
-    =incomplete= (the code is syntactically invalid, but may become so
-    by adding more text) or =invalid= (there is a syntax error in the
-    existing portion of code).
-  - =indent= (optional): If present, this is the expected indentation
-    of a continuation line, as a string.
-  - =prompt=: The prompt of a continuation line.
+Check if a continuation line is needed.
 
-- =describe= (editor request): Obtain information on the symbol at
-  point.
+Parameters:
+- =code= (string): A code snippet.
 
-  Parameters:
-  - =code=: A code snippet.
-  - =offset=: An offset (zero-based) from start of =code= containing
-    the symbol of interest.
+Result:
+- =status=: One of =complete= (the code is valid), =incomplete= (the
+  code is syntactically invalid, but may become so by adding more
+  text) or =invalid= (there is a syntax error in the existing portion
+  of code).
+- =indent= (optional): If present, this is the expected indentation of
+  a continuation line, as a string.
+- =prompt=: The prompt of a continuation line.
 
-  Result: The response may be empty (no information on the symbol) or
-  as follows.
-  - =name=: The symbol name.
-  - =type= (optional): The symbol type or function signature.
-  - =text= (optional): Free-form documentation on the symbol.
+*** =describe= (editor request)
 
-- =setoptions= (editor request): Set configuration options.  The
-  parameters are arbitrary and interpreter-specific.  The interpreter
-  must send an empty response.
+Obtain information on the symbol at point.
 
-- =getoptions= (interpreter notification).  Indicates that the editor
-  should send a =setoptions= request.  Typically emitted when the
-  interpreter is initialized but before printing the first prompt.
-  Implicitly changes the tracked interpreter state to =ready=.
+Parameters:
+- =code=: A code snippet.
+- =offset=: An offset (zero-based) from start of =code= containing the
+  symbol of interest.
+
+Result: The response may be empty (no information on the symbol) or as
+follows.
+- =name=: The symbol name.
+- =type= (optional): The symbol type or function signature.
+- =text= (optional): Free-form documentation on the symbol.
+
+*** =setoptions= (editor request)
+
+Set configuration options.  The parameters are arbitrary and
+interpreter-specific.  The interpreter must send an empty response.
+
+*** =getoptions= (interpreter notification)
+
+Indicates that the editor should send a =setoptions= request.
+Typically emitted when the interpreter is initialized but before
+printing the first prompt.  Implicitly changes the tracked interpreter
+state to =ready=.
 
 ** Why
 
