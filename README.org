@@ -60,7 +60,11 @@ how to multiplex control messages and regular IO.
 - From the subprocess to Emacs, control messages travel in JSON
   objects inside an OSC escape sequence (code 5161).
 - From Emacs to the subprocess, control messages are passed as lines
-  of the form =ESC % <JSON object> LF=.
+  of the form =ESC = <JSON object> LF=.  If the subprocess
+  communicates over a PTY and the encoded message is too long to fit a
+  line (this is an OS-dependent limit), then the message payload is
+  split into fragments.  All fragments except the last are transmitted
+  as =ESC + <JSON fragment> LF=.
 
 At any given point in time, the subprocess expects either a framed
 messages like this or regular IO.  Emacs keeps track of the state of

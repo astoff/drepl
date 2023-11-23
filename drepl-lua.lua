@@ -1,9 +1,10 @@
 local json = require 'dkjson'
 local repl = require 'repl'
-local stdout = io.stdout
-local stdin = io.stdin
-local print = print
+
+local concat = table.concat
+local error = error
 local format = string.format
+local stdin, stdout = io.stdin, io.stdout
 
 local drepl = repl:clone()
 drepl.keep_running = true
@@ -12,18 +13,26 @@ drepl:loadplugin 'completion'
 drepl._features.console = true -- Lie about this to make pretty_print happy.
 drepl:loadplugin 'pretty_print'
 
--- function drepl:displayresults(results)
---   if results.n == 0 then return end
---   print(compat.unpack(results, 1, results.n))
--- end
-
 function drepl:displayerror(err)
-  print(err)
+  stdout:write(err, "\n")
+  stdout:flush()
 end
 
-local function reply(data)
+local function sendmsg(data)
   stdout:write(format("\x1b]5161;%s\x1b\\", json.encode(data)))
   stdout:flush()
+end
+
+local function readmsg()
+  sendmsg{op="status", status="ready"}
+  local buffer, c = {}, nil
+  while c ~= "=" do
+    local line = stdin:read()
+    if line == nil then return end
+    c = line:match("^\x1b([+=])") or error(format("Unexpected input: %q", line))
+    buffer[#buffer+1] = line:sub(3)
+  end
+  return json.decode(concat(buffer))
 end
 
 function drepl:showprompt(prompt)
@@ -31,17 +40,12 @@ function drepl:showprompt(prompt)
   stdout:flush()
 end
 
-function drepl:process_line()
-  reply{op="status", status="ready"}
-  local line = stdin:read()
-  if line == nil then -- Got an EOF signal
+function drepl:process_message()
+  local message = readmsg()
+  if message == nil then -- Got an EOF signal
     self.keep_running = false
     return
   end
-  if line:sub(1, 2) ~= "\x1b%" then
-    error(format("Unexpected input: %q", line))
-  end
-  local message = json.decode(line, 3)
   local method = self["drepl_" .. message.op]
   if not method then
     error(format("Unknown op: %s", message.op))
@@ -62,8 +66,8 @@ function drepl:drepl_checkinput(args)
   -- FIXME: the following avoids a race condition, but we should
   -- prescribe in the protocol which methods switch from ready to
   -- other states.
-  reply{op="status", status="ready"}
-  reply{
+  sendmsg{op="status", status="ready"}
+  sendmsg{
     id=args.id,
     status=not err and "complete" or cont and "incomplete" or "invalid",
     prompt=err and self:getprompt(2) .. " " or nil,
@@ -83,7 +87,7 @@ function drepl:drepl_complete(args)
       cands[#cands+1] = {text=cand, type=type}
     end
   )
-  reply{
+  sendmsg{
     id=args.id,
     candidates=cands
   }
@@ -92,8 +96,8 @@ end
 function drepl:main()
   self:prompt(1)
   while self.keep_running do
-    local ok, err = pcall(self.process_line, self)
-    if not ok then reply{op="log", text=err} end
+    local ok, err = pcall(self.process_message, self)
+    if not ok then sendmsg{op="log", text=err} end
   end
 end
 

@@ -27,8 +27,20 @@ MIME_TYPES = {
 }
 
 
-def reply(**data):
+def sendmsg(**data):
     print(f"\033]5161;{json.dumps(data)}\033\\", end="")
+
+
+def readmsg():
+    sendmsg(op="status", status="ready")
+    buffer = []
+    while True:
+        line = input()
+        buffer.append(line[2:])
+        if line.startswith("\033="):
+            return json.loads("".join(buffer))
+        if not line.startswith("\033+"):
+            raise DreplError("Invalid input")
 
 
 class DreplError(Exception):
@@ -107,9 +119,9 @@ class Drepl(InteractiveShell):
     def mainloop(self):
         while self.keep_running:
             try:
-                self.run_repl()
+                self.run_once()
             except EOFError:
-                reply(op="status", status="busy")
+                sendmsg(op="status", status="busy")
                 if (not self.confirm_exit) or self.ask_yes_no(
                     "Do you really want to exit ([y]/n)?", "y", "n"
                 ):
@@ -117,20 +129,17 @@ class Drepl(InteractiveShell):
             except (DreplError, KeyboardInterrupt) as e:
                 print(str(e) or e.__class__.__name__)
 
-    def run_repl(self):
+    def run_once(self):
         "Print prompt, run REPL until a new prompt is needed."
         if self.current_ps1 is None:
-            reply(op="getoptions")
+            sendmsg(op="getoptions")
             self.current_ps1, separate_in = "", ""
         else:
-            reply(op="status", status="ready")
             separate_in = self.separate_in if self.current_ps1 else ""
             self.current_ps1 = sys.ps1.format(self.execution_count)
-        line = input(separate_in + self.current_ps1)
+        print(separate_in + self.current_ps1, end="")
         while True:
-            if not line.startswith("\033%"):
-                raise DreplError("Invalid input")
-            data = json.loads(line[2:])
+            data = readmsg()
             op = data.pop("op")
             fun = getattr(self, "drepl_{}".format(op), None)
             if fun is None:
@@ -139,15 +148,12 @@ class Drepl(InteractiveShell):
             if op == "eval":
                 self.execution_count += 1
                 break
-            elif op == "setoptions":
+            if op == "setoptions":
                 break
-            else:
-                reply(op="status", status="ready")
-                line = input()
 
     def drepl_eval(self, id, code):
         r = self.run_cell(code)
-        reply(id=id)
+        sendmsg(id=id)
 
     def drepl_complete(self, id, code, offset):
         with provisionalcompleter():
@@ -155,19 +161,19 @@ class Drepl(InteractiveShell):
                 {"text": c.text, "annot": c.signature}
                 for c in self.Completer.completions(code, offset)
             ]
-        reply(id=id, candidates=r or None)
+        sendmsg(id=id, candidates=r or None)
 
     def drepl_checkinput(self, id, code):
         status, indent = self.check_complete(code)
         prompt = sys.ps2.format(self.execution_count).rjust(len(self.current_ps1))
-        reply(id=id, status=status, indent=indent, prompt=prompt)
+        sendmsg(id=id, status=status, indent=indent, prompt=prompt)
 
     def drepl_describe(self, id, code, offset):
         name = token_at_cursor(code, offset)
         try:
             info = self.object_inspect(name)
             defn = info["definition"]
-            reply(
+            sendmsg(
                 id=id,
                 name=info["name"],
                 type=" ".join(defn.split()) if defn else info["type_name"],
@@ -175,9 +181,9 @@ class Drepl(InteractiveShell):
                 text=self.object_inspect_text(name),
             )
         except Exception:
-            reply(id=id)
+            sendmsg(id=id)
 
     def drepl_setoptions(self, id, prompts=None):
         if prompts:
             sys.ps1, sys.ps2, sys.ps3, self.separate_in, self.separate_out = prompts
-        reply(id=id)
+        sendmsg(id=id)

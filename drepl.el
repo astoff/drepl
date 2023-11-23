@@ -159,10 +159,17 @@ REPL must be in `ready' state and transitions to `busy' state.
 DATA is a plist containing the request arguments, as well as :op
 and :id entries."
   (setf (drepl--status repl) 'busy)
-  (let ((encoded (drepl--json-encode data)))
-    (drepl--log-message "send %s" encoded)
-    (process-send-string (drepl--process repl)
-                         (format "\e%%%s\n" encoded))))
+  (let* ((proc (drepl--process repl))
+         (maxlen (when (process-tty-name proc)
+                   (- comint-max-line-length 3))))
+    (named-let recur ((last t)
+                      (s (drepl--json-encode data)))
+      (if (and maxlen (< maxlen (string-bytes s)))
+          (let ((i (/ (length s) 2)))
+            (recur nil (substring s 0 i))
+            (recur last (substring s i)))
+        (drepl--log-message "send %s" s)
+        (process-send-string proc (format "\e%s%s\n" (if last "=" "+") s))))))
 
 (defun drepl--communicate (repl callback op &rest args)
   "Send a request to REPL.
