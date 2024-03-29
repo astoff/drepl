@@ -329,10 +329,11 @@ interactively."
                     (drepl--communicate repl 'sync 'complete
                                         :code code
                                         :offset offset))))
-    (mapcar (lambda (c)
-              (let-alist c
-                (propertize .text 'drepl--annot .annot)))
-            (alist-get 'candidates response))))
+    (when (listp response)
+      (mapcar (lambda (c)
+                (let-alist c
+                  (propertize .text 'drepl--annot .annot)))
+              (alist-get 'candidates response)))))
 
 (defun drepl--complete ()
   "Function intended for use as a member of `completion-at-point-functions'."
