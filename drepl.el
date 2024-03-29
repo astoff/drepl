@@ -321,7 +321,8 @@ interactively."
 
 (cl-defgeneric drepl--completion-bounds (_repl)
   "Return the start and end of completion region as a cons cell."
-  (bounds-of-thing-at-point 'symbol))
+  (or (bounds-of-thing-at-point 'symbol)
+      (cons (point) (point))))
 
 (defun drepl--completion-cadidates (repl code offset)
   "Ask REPL for possible completions of CODE with point at OFFSET."
