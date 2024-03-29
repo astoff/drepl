@@ -89,12 +89,13 @@ The interpreter indicates whether or not it is ready to receive a
 framed operation message.
 
 Parameters:
-- =status=: Either =ready= (subprocess is expecting a framed message)
-  or =busy= (IO, if it occurs, should not be framed).
+- =status=: Either =ready= (subprocess is expecting a framed message),
+  =rawio= (IO, if it occurs, should not be framed) or =busy= (no IO is
+  allowed).
 
-Note: Some changes in the tracked state happen implicitly.  Most
-importantly, when an editor request is sent, tracked state changes to
-=busy=.
+Note: Some changes in the tracked state happen implicitly.  For
+instance, when an editor request is sent, the tracked state changes to
+=busy= or =rawio= depending on the operation type.
 
 *** =eval= (editor request)
 Evaluate some code, blocking until the computation is complete.

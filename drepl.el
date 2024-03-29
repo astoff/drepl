@@ -154,12 +154,19 @@ The message is formed by calling `format' with STRING and ARGS."
       (lambda (s) (json-serialize s :null-object nil))
     (error "Not implemented")))
 
+(defconst drepl--state-transitions
+  '((eval . rawio))
+  "Alist mapping a REPL operation to a new REPL state.
+The default new state is busy.")
+
 (cl-defgeneric drepl--send-request (repl data)
   "Send request data to REPL.
 REPL must be in `ready' state and transitions to `busy' state.
 DATA is a plist containing the request arguments, as well as :op
 and :id entries."
-  (setf (drepl--status repl) 'busy)
+  (setf (drepl--status repl) (alist-get (plist-get data :op)
+                                        drepl--state-transitions
+                                        'busy nil #'string-equal))
   (let* ((proc (drepl--process repl))
          (maxlen (when (process-tty-name proc)
                    (- comint-max-line-length 3))))
@@ -169,7 +176,7 @@ and :id entries."
           (let ((i (/ (length s) 2)))
             (recur nil (substring s 0 i))
             (recur last (substring s i)))
-        (drepl--log-message "send %s" s)
+        (drepl--log-message "send msg %s" s)
         (process-send-string proc (format "\e%s%s\n" (if last "=" "+") s))))))
 
 (defun drepl--communicate (repl callback op &rest args)
@@ -363,15 +370,15 @@ interactively."
   (drepl--communicate repl #'ignore 'eval :code code))
 
 (defun drepl--send-string (proc string)
-  "Like `comint-send-string', but check whether PROC's status is `ready'.
-If it is, then make an eval request, otherwise just send the raw
-STRING to the process."
+  "Like `comint-send-string', but check the REPL status first.
+If it is `rawio', then simply send the raw STRING to the process.
+Otherwise, make an eval request."
   (let ((repl (with-current-buffer
                   (if proc (process-buffer proc) (current-buffer))
-                (drepl--get-repl 'ready))))
-    (if repl
+                (drepl--get-repl nil t))))
+    (if (not (eq (drepl--status repl) 'rawio))
         (drepl--eval repl string)
-      (drepl--log-message "send %s" string)
+      (drepl--log-message "send raw %s" string)
       (comint-simple-send proc string))))
 
 (defun drepl-eval (code)
