@@ -113,7 +113,8 @@ addition to those of `drepl-base'."
          ,(or docstring
               (format "Start the %s interpreter." display-name))
          (interactive)
-         (drepl--run ',name t))
+         (pop-to-buffer (drepl--get-repl-create ',name t)
+                        display-comint-buffer-action))
        (cl-defstruct (,name
                       (:include drepl-base)
                       (:copier nil)
@@ -309,7 +310,8 @@ interactively."
   (pop-to-buffer
    (if ask
        (drepl--read-buffer "Pop to REPL: ")
-     (drepl--buffer (drepl--get-repl nil t)))))
+     (drepl--buffer (drepl--get-repl nil t)))
+   display-comint-buffer-action))
 
 ;;; Complete operation
 
@@ -466,7 +468,7 @@ in the default implementation."
   (with-current-buffer (drepl--buffer repl)
     (kill-process (drepl--process repl))
     (while (accept-process-output (drepl--process repl)))
-    (drepl--run (type-of repl) nil)))
+    (drepl--get-repl-create (type-of repl) nil)))
 
 (defun drepl-restart (&optional hard)
   "Restart the current REPL.
@@ -495,7 +497,7 @@ project; otherwise fall back to `default-directory'."
           (or (get type 'drepl--display-name) type)))
 
 (defun drepl--get-buffer-create (type may-prompt)
-  "Get or create a dREPL buffer of the given TYPE.
+  "Get a buffer suitable for a REPL of the given TYPE, creating one if needed.
 The directory of the buffer is determined by `drepl-directory'.
 If MAY-PROMPT is non-nil, allow an interactive query if needed."
   (if (eq type (type-of drepl--current))
@@ -542,13 +544,10 @@ appropriate mode using `auto-mode-alist'."
       (when (syntax-table-p syntbl-val)
         (set-syntax-table syntbl-val)))))
 
-(defun drepl--run (type may-prompt)
-  "Pop to a REPL of the given TYPE or start a new one.
+(defun drepl--get-repl-create (type may-prompt)
+  "Return a buffer running a REPL of the given TYPE, creating one if needed.
 
-This function is intended to be wrapped in an interactive command
-for each new REPL type.
-
-If MAY-PROMPT is non-nil, prompt for a project in which to run
+If MAY-PROMPT is non-nil, prompt for a project directory in which to run
 it, if necessary."
   (let ((buffer (drepl--get-buffer-create type may-prompt)))
     (unless (comint-check-proc buffer)
@@ -564,7 +563,7 @@ it, if necessary."
                  (car command) nil (cdr command))
           (drepl--init repl)
           (setq drepl--current repl))))
-    (pop-to-buffer buffer display-comint-buffer-action)))
+    buffer))
 
 ;;; Base major mode
 
