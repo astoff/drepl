@@ -276,6 +276,7 @@ associated to the current buffer."
                    "No default REPL, use \\[drepl-associate] to choose one")))
     (when (or (not status)
               (and repl
+                   (drepl--process repl)
                    (memq (process-status (drepl--process repl))
                          '(run open))
                    (eq status (drepl--status repl))))
@@ -420,12 +421,9 @@ insert start a continuation line instead."
     (pcase-exhaustive .status
       ((or (and "incomplete" (let face 'drepl-prompt-incomplete))
            (and "invalid" (let face 'drepl-prompt-invalid)))
-       (let* ((prompt (thread-first
-                       .prompt
-                       (or "")
-                       (propertize 'font-lock-face face))))
+       (let ((prompt (propertize (or .prompt "") 'font-lock-face face)))
          (insert (propertize "\n" 'display (concat " \n" prompt))
-                 .indent)))
+                 (or .indent ""))))
       ((or "complete" 'nil)
        (comint-send-input)))))
 
@@ -458,11 +456,10 @@ The return value is passed directly to an Eldoc callback.  See
 See that variable's docstring for a description of CALLBACK."
   (when-let ((repl (when (derived-mode-p 'drepl-mode)
                      (drepl--get-repl 'ready)))
-             (offset (- (point) (cdr comint-last-prompt)))
+             (start (cdr comint-last-prompt))
+             (offset (- (point) start))
              (code (when (>= offset 0)
-                     (buffer-substring-no-properties
-                      (cdr comint-last-prompt)
-                      (point-max))))
+                     (buffer-substring-no-properties start (point-max))))
              (cb (lambda (data)
                    (apply callback (drepl--format-eldoc repl data)))))
     (drepl--communicate repl cb 'describe :code code :offset offset)))
@@ -475,8 +472,9 @@ HARD should be as described in `drepl-restart', but it not used
 in the default implementation."
   (ignore hard)
   (with-current-buffer (drepl--buffer repl)
-    (kill-process (drepl--process repl))
-    (while (accept-process-output (drepl--process repl)))
+    (when-let ((proc (drepl--process repl)))
+      (kill-process proc)
+      (while (accept-process-output proc)))
     (drepl--get-repl-create (type-of repl) nil)))
 
 (defun drepl-restart (&optional hard)
