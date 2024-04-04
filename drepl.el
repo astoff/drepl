@@ -214,19 +214,22 @@ and this function returns the response data directly."
   "Function intended for use as an entry of `ansi-osc-handlers'.
 TEXT is a still unparsed message received from the interpreter."
   (drepl--log-message "read %s" text)
-  (let* ((data (drepl--json-decode text))
-         (id (alist-get 'id data))
+  (drepl--handle-response drepl--current (drepl--json-decode text)))
+
+(defun drepl--handle-response (repl data)
+  "React to message DATA coming from the REPL process."
+  (let* ((id (alist-get 'id data))
          (callback (if id
                        (prog1
-                           (alist-get id (drepl--callbacks drepl--current))
-                         (setf (alist-get id (drepl--callbacks drepl--current)
+                           (alist-get id (drepl--callbacks repl))
+                         (setf (alist-get id (drepl--callbacks repl)
                                           nil 'remove)
                                nil))
                      (apply-partially #'drepl--handle-notification
-                                      drepl--current))))
-    (when-let ((nextreq (and (eq (drepl--status drepl--current) 'ready)
-                             (pop (drepl--pending drepl--current)))))
-      (drepl--send-request drepl--current nextreq))
+                                      repl))))
+    (when-let ((nextreq (and (eq (drepl--status repl) 'ready)
+                             (pop (drepl--pending repl)))))
+      (drepl--send-request repl nextreq))
     (when callback
       (funcall callback data))))
 
