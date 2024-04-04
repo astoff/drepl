@@ -1,6 +1,6 @@
 ;;; drepl-lua.el --- Lua shell based on the luarepl library  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2023  Free Software Foundation, Inc.
+;; Copyright (C) 2023-2024  Free Software Foundation, Inc.
 
 ;; Author: Augusto Stoffel <arstoffel@gmail.com>
 ;; Keywords: languages, processes

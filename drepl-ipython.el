@@ -1,6 +1,6 @@
 ;;; drepl-ipython.el --- Python shell based on IPython  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2023  Free Software Foundation, Inc.
+;; Copyright (C) 2023-2024  Free Software Foundation, Inc.
 
 ;; Author: Augusto Stoffel <arstoffel@gmail.com>
 ;; Keywords: languages, processes
