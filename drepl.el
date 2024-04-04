@@ -113,7 +113,7 @@ addition to those of `drepl-base'."
          ,(or docstring
               (format "Start the %s interpreter." display-name))
          (interactive)
-         (pop-to-buffer (drepl--get-repl-create ',name t)
+         (pop-to-buffer (drepl--get-buffer-create ',name t)
                         display-comint-buffer-action))
        (cl-defstruct (,name
                       (:include drepl-base)
@@ -375,7 +375,7 @@ interactively."
 
 (defun drepl--send-string (proc string)
   "Like `comint-send-string', but check the REPL status first.
-If it is `rawio', then simply send the raw STRING to the process.
+If it is `rawio', then simply send the raw STRING to process PROC.
 Otherwise, make an eval request."
   (let ((repl (with-current-buffer
                   (if proc (process-buffer proc) (current-buffer))
@@ -478,7 +478,7 @@ in the default implementation."
     (when-let ((proc (drepl--process repl)))
       (kill-process proc)
       (while (accept-process-output proc)))
-    (drepl--get-repl-create (type-of repl) nil)))
+    (drepl--get-buffer-create (type-of repl) nil)))
 
 (defun drepl-restart (&optional hard)
   "Restart the current REPL.
@@ -507,24 +507,39 @@ project; otherwise fall back to `default-directory'."
           (or (get type 'drepl--display-name) type)))
 
 (defun drepl--get-buffer-create (type may-prompt)
-  "Get a buffer suitable for a REPL of the given TYPE, creating one if needed.
+  "Get a buffer running a REPL of the given TYPE, creating one if needed.
 The directory of the buffer is determined by `drepl-directory'.
 If MAY-PROMPT is non-nil, allow an interactive query if needed."
-  (if (eq type (type-of drepl--current))
-      (drepl--buffer drepl--current)
-    (let ((default-directory (if (stringp drepl-directory)
-                                 drepl-directory
-                               (funcall drepl-directory may-prompt))))
-      (get-buffer-create (drepl--buffer-name type default-directory)))))
+  (let ((buffer
+         (if (eq type (type-of drepl--current))
+             (drepl--buffer drepl--current)
+           (let ((default-directory (if (stringp drepl-directory)
+                                        drepl-directory
+                                      (funcall drepl-directory may-prompt))))
+             (get-buffer-create (drepl--buffer-name type default-directory))))))
+    (unless (comint-check-proc buffer)
+      (with-current-buffer buffer
+        (let ((repl (funcall (intern (format "%s--create" type))
+                             :buffer buffer)))
+          (drepl--log-message "starting %s" buffer)
+          (drepl-mode)
+          (drepl--init repl)
+          (setq drepl--current repl))))
+    buffer))
 
 (cl-defgeneric drepl--command (repl)
   "The command to start the REPL interpreter, as a list of strings.")
 
 (cl-defgeneric drepl--init (repl)
   "Initialization code for REPL.
-This function is called in the REPL buffer after a Comint has
-been started in it.  It should call `drepl-mode' or a derived
-mode and perform all other desired initialization procedures.")
+This function is called in the REPL buffer after `drepl-mode' has been
+activated.  It should start and initialize a Comint process."
+  (pcase-let ((`(,program . ,switches) (drepl--command repl))
+              (buffer (drepl--buffer repl)))
+    (apply #'make-comint-in-buffer
+           (buffer-name buffer)
+           buffer
+           program nil switches)))
 
 (cl-defgeneric drepl--set-options (repl data)
   "Implementation of the `setoptions' operation.
@@ -554,27 +569,6 @@ appropriate mode using `auto-mode-alist'."
       (when (syntax-table-p syntbl-val)
         (set-syntax-table syntbl-val)))))
 
-(defun drepl--get-repl-create (type may-prompt)
-  "Return a buffer running a REPL of the given TYPE, creating one if needed.
-
-If MAY-PROMPT is non-nil, prompt for a project directory in which to run
-it, if necessary."
-  (let ((buffer (drepl--get-buffer-create type may-prompt)))
-    (unless (comint-check-proc buffer)
-      (cl-letf* (((default-value 'process-environment) process-environment)
-                 ((default-value 'exec-path) exec-path)
-                 (constructor (intern (format "%s--create" type)))
-                 (repl (funcall constructor :buffer buffer))
-                 (command (drepl--command repl)))
-        (with-current-buffer buffer
-          (drepl--log-message "starting %s" buffer)
-          (apply #'make-comint-in-buffer
-                 (buffer-name buffer) buffer
-                 (car command) nil (cdr command))
-          (drepl--init repl)
-          (setq drepl--current repl))))
-    buffer))
-
 ;;; Base major mode
 
 (defvar-keymap drepl-mode-map
@@ -588,9 +582,9 @@ it, if necessary."
 (define-derived-mode drepl-mode comint-mode "dREPL"
   "Major mode for the dREPL buffers."
   :interactive nil
-  (add-hook 'completion-at-point-functions 'drepl--complete nil t)
+  (add-hook 'completion-at-point-functions #'drepl--complete nil t)
   (add-hook 'eldoc-documentation-functions #'drepl--eldoc-function nil t)
-  (add-hook 'comint-output-filter-functions 'comint-osc-process-output nil t)
+  (add-hook 'comint-output-filter-functions #'comint-osc-process-output nil t)
   (push '("5161" . drepl--osc-handler) ansi-osc-handlers)
   (setq-local comint-input-sender #'drepl--send-string)
   (setq-local indent-line-function #'comint-indent-input-line-default)

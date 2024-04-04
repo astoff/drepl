@@ -66,8 +66,8 @@ substring \"{}\" is replaced by the execution count."
   `(,python-interpreter "-c"
     "import sys; exec(''.join(sys.stdin)); Drepl.instance().mainloop()"))
 
-(cl-defmethod drepl--init ((_ drepl-ipython))
-  (drepl-mode)
+(cl-defmethod drepl--init ((repl drepl-ipython))
+  (cl-call-next-method repl)
   (drepl--adapt-comint-to-mode ".py")
   (push '("5151" . comint-mime-osc-handler) ansi-osc-handlers)
   (let ((buffer (current-buffer)))

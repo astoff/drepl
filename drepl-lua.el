@@ -52,8 +52,8 @@
 (cl-defmethod drepl--command ((_ drepl-lua))
   `(,drepl-lua-program "-v" "-e" "loadfile()():main()"))
 
-(cl-defmethod drepl--init ((_ drepl-lua))
-  (drepl-mode)
+(cl-defmethod drepl--init ((repl drepl-lua))
+  (cl-call-next-method repl)
   (drepl--adapt-comint-to-mode ".lua")
   (let ((buffer (current-buffer)))
     (with-temp-buffer
