@@ -1,4 +1,4 @@
-;;; drepl.el --- REPL protocol for the dumb terminal   -*- lexical-binding: t; -*-
+;;; drepl-lua.el --- Lua shell based on the luarepl library  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2023  Free Software Foundation, Inc.
 
@@ -21,8 +21,8 @@
 
 ;;; Commentary:
 
-;; This file defines a REPL for Lua.  The required Lua packages can be
-;; installed with `luarocks install dkjson luarepl'.
+;; This file defines a shell for the Lua language.  The required Lua
+;; packages can be installed with `luarocks install dkjson luarepl'.
 
 ;;; Code:
 

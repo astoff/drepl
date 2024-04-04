@@ -1,4 +1,4 @@
-;;; drepl.el --- REPL protocol for the dumb terminal   -*- lexical-binding: t; -*-
+;;; drepl-ipython.el --- Python shell based on IPython  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2023  Free Software Foundation, Inc.
 
@@ -21,9 +21,8 @@
 
 ;;; Commentary:
 
-;; This file defines a REPL based on the IPython interpreter.  It
-;; depends on Python and the ipython package, which can be installed
-;; with `pip install ipython'.
+;; This file defines a Python shell based on the IPython package.  The
+;; dependencies can be installed with `pip install ipython'.
 
 ;;; Code:
 
