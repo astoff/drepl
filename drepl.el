@@ -133,7 +133,7 @@ ARGS is the entire argument list of `drepl--log-message'."
     (goto-char (point-max))
     (when-let ((w (get-buffer-window)))
       (set-window-point w (point)))
-    (insert (propertize (format-time-string "[%T] ") 'face 'error)
+    (insert (propertize (format-time-string "[%T] ") 'face 'warning)
             (apply #'format args)
             ?\n)))
 
@@ -238,14 +238,13 @@ TEXT is a still unparsed message received from the interpreter."
   "Method called when REPL sends a notification.
 DATA is the content of the message."
   (pcase (alist-get 'op data)
-    ("status" (setf (drepl--status repl)
-                    (intern (alist-get 'status data))))
+    ("status"
+     (setf (drepl--status repl) (intern (alist-get 'status data))))
     ("getoptions"
      (setf (drepl--status repl) 'ready)
      (drepl--set-options repl data))
-    ("log" (drepl--log-message "log:%s: %s"
-                               (buffer-name)
-                               (alist-get 'text data)))))
+    ("log"
+     (message "%s: %s" (buffer-name) (alist-get 'text data)))))
 
 ;;; Buffer association
 

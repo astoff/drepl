@@ -35,6 +35,10 @@ local function readmsg()
   return json.decode(concat(buffer))
 end
 
+local function no_op(_, args)
+  sendmsg{id=args.id}
+end
+
 function drepl:showprompt(prompt)
   stdout:write(prompt .. ' ')
   stdout:flush()
@@ -46,10 +50,7 @@ function drepl:process_message()
     self.keep_running = false
     return
   end
-  local method = self["drepl_" .. message.op]
-  if not method then
-    error(format("Unknown op: %s", message.op))
-  end
+  local method = self["drepl_" .. message.op] or no_op
   method(self, message)
 end
 
