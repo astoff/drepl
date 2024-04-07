@@ -336,12 +336,12 @@ interactively."
   (or (bounds-of-thing-at-point 'symbol)
       (cons (point) (point))))
 
-(defun drepl--completion-cadidates (repl code offset)
-  "Ask REPL for possible completions of CODE with point at OFFSET."
+(defun drepl--completion-cadidates (repl code pos)
+  "Ask REPL for possible completions of CODE with point at POS."
   (let ((response (while-no-input
                     (drepl--communicate repl 'sync 'complete
                                         :code code
-                                        :offset offset))))
+                                        :pos pos))))
     (when (listp response)
       (mapcar (lambda (c)
                 (let-alist c
@@ -356,9 +356,9 @@ interactively."
              (code (buffer-substring-no-properties
                     (cdr comint-last-prompt)
                     (point-max)))
-             (offset (- (point) (cdr comint-last-prompt)))
-             (cands (when (>= offset 0)
-                      (drepl--completion-cadidates repl code offset)))
+             (pos (- (point) (cdr comint-last-prompt)))
+             (cands (when (>= pos 0)
+                      (drepl--completion-cadidates repl code pos)))
              (metadata '(metadata
                          (category . drepl)
                          (annotation-function . drepl--capf-annotate)))
@@ -461,12 +461,12 @@ See that variable's docstring for a description of CALLBACK."
   (when-let ((repl (when (derived-mode-p 'drepl-mode)
                      (drepl--get-repl 'ready)))
              (start (cdr comint-last-prompt))
-             (offset (- (point) start))
-             (code (when (>= offset 0)
+             (pos (- (point) start))
+             (code (when (>= pos 0)
                      (buffer-substring-no-properties start (point-max))))
              (cb (lambda (data)
                    (apply callback (drepl--format-eldoc repl data)))))
-    (drepl--communicate repl cb 'describe :code code :offset offset)))
+    (drepl--communicate repl cb 'describe :code code :pos pos)))
 
 ;;; REPL restart
 

@@ -155,11 +155,11 @@ class Drepl(InteractiveShell):
         r = self.run_cell(code)
         sendmsg(id=id)
 
-    def drepl_complete(self, id, code, offset):
+    def drepl_complete(self, id, code, pos):
         with provisionalcompleter():
             r = [
                 {"text": c.text, "annot": c.signature}
-                for c in self.Completer.completions(code, offset)
+                for c in self.Completer.completions(code, pos)
             ]
         sendmsg(id=id, candidates=r or None)
 
@@ -168,8 +168,8 @@ class Drepl(InteractiveShell):
         prompt = sys.ps2.format(self.execution_count).rjust(len(self.current_ps1))
         sendmsg(id=id, status=status, indent=indent, prompt=prompt)
 
-    def drepl_describe(self, id, code, offset):
-        name = token_at_cursor(code, offset)
+    def drepl_describe(self, id, code, pos):
+        name = token_at_cursor(code, pos)
         try:
             info = self.object_inspect(name)
             defn = info["definition"]

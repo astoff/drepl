@@ -113,8 +113,8 @@ Get completions at point.
 
 Parameters:
 - =code=: A code snippet containing the completion point.
-- =offset=: The offset (zero-based) from start of =code= to
-  the point of completion.
+- =pos=: The offset (zero-based) from start of =code= to the point of
+  completion.
 
 Response:
 - =candidates= (optional): A list of objects, each containing the
@@ -145,7 +145,7 @@ Obtain information on the symbol at point.
 
 Parameters:
 - =code=: A code snippet.
-- =offset=: An offset (zero-based) from start of =code= containing the
+- =pos=: An offset (zero-based) from start of =code= containing the
   symbol of interest.
 
 Result: The response may be empty (no information on the symbol) or as

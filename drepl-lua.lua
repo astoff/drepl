@@ -76,7 +76,7 @@ function drepl:drepl_checkinput(args)
 end
 
 function drepl:drepl_complete(args)
-  local prefix = args.code:sub(1, args.offset)
+  local prefix = args.code:sub(1, args.pos)
   local cands = {}
   self:complete(
     prefix,
