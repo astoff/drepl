@@ -5,8 +5,10 @@
 dREPL is a collection of fully featured language shells for Emacs.  At
 the moment it supports the following interpreters:
 
-- *Python:* requires [[https://pypi.org/project/ipython/][IPython]].
-- *Lua:* requires [[https://luarocks.org/modules/hoelzro/luarepl][luarepl]] and [[https://luarocks.org/modules/dhkolf/dkjson][dkjson]].
+- *Python*: requires [[https://pypi.org/project/ipython/][IPython]].
+- *Lua*: requires [[https://luarocks.org/modules/hoelzro/luarepl][luarepl]] and [[https://luarocks.org/modules/dhkolf/dkjson][dkjson]].
+- Various SQL and NoSQL databases: based on [[https://github.com/xo/usq][usql]], requires a Go
+  compiler.
 
 The following features are available, subject to variations across
 different REPLs (IPython supports all of them):
