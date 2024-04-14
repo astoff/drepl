@@ -64,10 +64,6 @@ end
 function drepl:drepl_checkinput(args)
   local _, err = self:compilechunk(args.code)
   local cont = err and self:detectcontinue(err)
-  -- FIXME: the following avoids a race condition, but we should
-  -- prescribe in the protocol which methods switch from ready to
-  -- other states.
-  sendmsg{op="status", status="ready"}
   sendmsg{
     id=args.id,
     status=not err and "complete" or cont and "incomplete" or "invalid",

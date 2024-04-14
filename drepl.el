@@ -214,12 +214,11 @@ and this function returns the response data directly."
                result))
     (let* ((id (cl-incf (drepl--last-id repl)))
            (data `(:id ,id :op ,(symbol-name op) ,@args)))
-      (push (cons id callback) (if-let ((reqs (drepl--callbacks repl)))
-                                   (cdr reqs)
-                                 (drepl--callbacks repl)))
+      (push (cons id callback) (drepl--callbacks repl))
       (if (eq 'ready (drepl--status repl))
           (drepl--send-request repl data)
-        (push (cons id data) (drepl--pending repl)))
+        ;; Add a pending request to the end of the queue.
+        (setf (drepl--pending repl) (nconc (drepl--pending repl) (list data))))
       id)))
 
 (defun drepl--osc-handler (_cmd text)
@@ -239,11 +238,10 @@ TEXT is a still unparsed message received from the interpreter."
                                nil))
                      (apply-partially #'drepl--handle-notification
                                       repl))))
-    (when-let ((nextreq (and (eq (drepl--status repl) 'ready)
-                             (pop (drepl--pending repl)))))
-      (drepl--send-request repl nextreq))
-    (when callback
-      (funcall callback data))))
+    (when callback (funcall callback data))
+    (when-let ((next (and (eq (drepl--status repl) 'ready)
+                          (pop (drepl--pending repl)))))
+      (drepl--send-request repl next))))
 
 (cl-defgeneric drepl--handle-notification (repl data)
   "Method called when REPL sends a notification.
