@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -228,7 +229,6 @@ func (l *Dline) Password(prompt string) (string, error) {
 func (l *Dline) SetOutput(f func(string) string) {}
 
 func main() {
-	scanner := bufio.NewScanner(os.Stdin)
 	usr, err := user.Current()
 	if err != nil {
 		log.Fatal(err)
@@ -238,12 +238,13 @@ func main() {
 		log.Fatal(err)
 	}
 	env.Pset("pager", "off")
+	scanner := bufio.NewScanner(os.Stdin)
 	l := &Dline{scanner: scanner, completer: nil}
-	h := handler.New(l, usr, wd, false)
-	l.handler = h
-	h.SetSingleLineMode(true)
+	l.handler = handler.New(l, usr, wd, false)
+	l.handler.SetSingleLineMode(true)
+	l.handler.Open(context.Background(), os.Args[1:]...)
 	l.SendLogo()
-	err = h.Run()
+	err = l.handler.Run()
 	if err != nil {
 		log.Fatal(err)
 	}

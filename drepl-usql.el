@@ -41,6 +41,9 @@
                                    (or load-file-name default-directory)))
   "Directory containing the `drepl-usql' source code.")
 
+(defvar drepl-usql--connection-history nil
+  "History list of database connections.")
+
 (defcustom drepl-usql-program
   (expand-file-name "drepl-usql" drepl-usql--directory)
   "Name of the drepl-usql executable."
@@ -59,7 +62,9 @@
 
 (cl-defmethod drepl--command ((_ drepl-usql))
   (if-let ((prog (executable-find drepl-usql-program)))
-      (list prog)
+      (list prog (read-from-minibuffer "Connect to database: "
+                                       nil nil nil
+                                       'drepl-usql--connection-history))
     (lwarn 'drepl-usql :error
            "`%s' not found, built it with %s"
            drepl-usql-program
@@ -68,6 +73,7 @@
 
 (cl-defmethod drepl--init ((repl drepl-usql))
   (cl-call-next-method repl)
+  (setf (drepl--status repl) 'rawio)
   (push '("5151" . comint-mime-osc-handler) ansi-osc-handlers)
   (drepl--adapt-comint-to-mode ".sql"))
 
