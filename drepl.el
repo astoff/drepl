@@ -64,6 +64,10 @@ directory name.  The function should accept one argument ASK
 which determines whether to ask or return nil when in doubt."
   :type '(choice string function))
 
+(defcustom drepl-use-savehist-mode nil
+  "Whether to persist REPL input history using `savehist-mode'."
+  :type 'boolean)
+
 (defvar-local drepl--current nil
   "The dREPL associated to the current buffer.
 In dREPL buffers, this is the dREPL object itself.  In all other
@@ -108,7 +112,8 @@ DOCSTRING is the docstring of the command NAME.
 EXTRA-SLOTS is a list of slots passed to `cl-defstruct' in
 addition to those of `drepl-base'."
   (let* ((display-name (or display-name (symbol-name name)))
-         (conc-name (intern (format "%s--" name))))
+         (conc-name (intern (format "%s--" name)))
+         (hist-var (intern (format "%s--history" name))))
     `(progn
        (defun ,name ()
          ,(or docstring
@@ -124,7 +129,13 @@ addition to those of `drepl-base'."
                       (:conc-name ,conc-name))
          ,(format "Structure keeping the state of a %s REPL." display-name)
          ,@extra-slots)
+       (defvar ,hist-var nil ,(format "History list for %s REPLs." display-name))
+       (put ',name 'drepl--history-variable ',hist-var)
        (put ',name 'drepl--display-name ,display-name))))
+
+(defun drepl--history-variable (repl)
+  "Return the history variable of REPL, as a symbol."
+  (get (type-of repl) 'drepl--history-variable))
 
 (defun drepl--log-message-1 (&rest args)
   "Helper function for `drepl--log-message'.
@@ -377,11 +388,15 @@ interactively."
   "Like `comint-send-string', but check the REPL status first.
 If it is `rawio', then simply send the raw STRING to process PROC.
 Otherwise, make an eval request."
-  (let ((repl (with-current-buffer
+  (let ((string (substring-no-properties string))
+        (repl (with-current-buffer
                   (if proc (process-buffer proc) (current-buffer))
                 (drepl--get-repl nil t))))
     (if (not (eq (drepl--status repl) 'rawio))
-        (drepl--eval repl string)
+        (progn
+          (when-let ((hist (drepl--history-variable repl)))
+            (add-to-history hist string comint-input-ring-size))
+            (drepl--eval repl string))
       (drepl--log-message "send raw %s" string)
       (comint-simple-send proc string))))
 
@@ -539,7 +554,13 @@ activated.  It should start and initialize a Comint process."
     (apply #'make-comint-in-buffer
            (buffer-name buffer)
            buffer
-           program nil switches)))
+           program nil switches))
+  (when-let ((hist (drepl--history-variable repl)))
+    (when drepl-use-savehist-mode
+      (defvar savehist-minibuffer-history-variables)
+      (cl-pushnew hist savehist-minibuffer-history-variables))
+    (dolist (cmd (take comint-input-ring-size (symbol-value hist)))
+      (ring-insert-at-beginning comint-input-ring cmd))))
 
 (cl-defgeneric drepl--set-options (repl data)
   "Implementation of the `setoptions' operation.
