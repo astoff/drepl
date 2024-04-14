@@ -119,8 +119,9 @@ Parameters:
   completion.
 
 Response:
-- =candidates= (optional): A list of objects, each containing the
-  following attributes.
+- =prefix= (optional): The portion of code that is being completed.
+- =candidates= (optional): A list of completion candidates, either
+  strings or objects containing the following attributes:
   - =text=: The completed text, including the existing prefix.
   - =annot=: Annotation text to be displayed next to the candidate
     in the completion UI.

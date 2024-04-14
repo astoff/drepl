@@ -353,10 +353,26 @@ interactively."
                                         :code code
                                         :pos pos))))
     (when (listp response)
-      (mapcar (lambda (c)
-                (let-alist c
-                  (propertize .text 'drepl--annot .annot)))
-              (alist-get 'candidates response)))))
+      (cons
+       (alist-get 'prefix response)
+       (mapcar (lambda (c)
+                 (or (and (stringp c) c)
+                     (let-alist c
+                       (propertize .text 'drepl--annot .annot))))
+               (alist-get 'candidates response))))))
+
+(defun drepl--adjust-candidates (ours theirs cands)
+  "Adjust completion candidate prefixes.
+OURS is the completion prefix computed by Emacs.
+THEIRS is the completion prefix computed by the REPL.
+CANDS is the candidate list computed by the REPL."
+  (let ((d (- (length theirs) (length ours))))
+    (cond ((or (not theirs) (zerop d)) cands)
+          ((cl-plusp d)
+           (mapcar (lambda (s) (substring s d)) cands))
+          ((cl-minusp d)
+           (let ((p (substring ours 0 (abs d))))
+             (mapcar (lambda (s) (concat p s)) cands))))))
 
 (defun drepl--complete ()
   "Function intended for use as a member of `completion-at-point-functions'."
@@ -367,8 +383,12 @@ interactively."
                     (cdr comint-last-prompt)
                     (point-max)))
              (pos (- (point) (cdr comint-last-prompt)))
-             (cands (when (>= pos 0)
+             (reply (when (>= pos 0)
                       (drepl--completion-cadidates repl code pos)))
+             (cands (drepl--adjust-candidates
+                     (buffer-substring-no-properties (car bounds) (cdr bounds))
+                     (car reply)
+                     (cdr reply)))
              (metadata '(metadata
                          (category . drepl)
                          (annotation-function . drepl--capf-annotate)))

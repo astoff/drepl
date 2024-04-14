@@ -133,27 +133,23 @@ func (l *Dline) CheckInput(code string) (status string, prompt string) {
 	return status, prompt
 }
 
-type Candidate struct {
-	Text string `json:"text"`
-}
-
-func (l *Dline) Complete(code string, pos int) []Candidate {
+func (l *Dline) Complete(code string, pos int) (string, []string) {
 	if l.completer == nil || len(code) < pos {
-		return nil
+		return "", nil
 	}
 	coder := []rune(code)
 	candr, i := l.completer.Do(coder, pos)
 	start := pos - i
 	if start < 0 {
-		return nil
+		return "", nil
 	}
 	prefix := coder[start:pos]
-	cands := make([]Candidate, 0, len(candr))
+	cands := make([]string, 0, len(candr))
 	for _, c := range candr {
 		c = append(prefix, c...)
-		cands = append(cands, Candidate{string(c)})
+		cands = append(cands, string(c))
 	}
-	return cands
+	return string(prefix), cands
 }
 
 // Next returns the next line of runes (excluding '\n') from the input.
@@ -180,9 +176,10 @@ func (l *Dline) Next() ([]rune, error) {
 				"prompt": prompt,
 			})
 		case "complete":
-			cands := l.Complete(msg.Code, msg.Pos)
+			prefix, cands := l.Complete(msg.Code, msg.Pos)
 			l.SendMsg(map[string]any{
 				"id":         msg.Id,
+				"prefix":     prefix,
 				"candidates": cands,
 			})
 		default:
