@@ -93,7 +93,9 @@ The id of the last request sent.")
 Alist of (ID . CALLBACK) keeping track of requests sent but not
 yet replied to.")
   (pending nil :documentation "\
-List of requests pending to be sent."))
+List of requests pending to be sent.")
+  (history-variable nil :documentation "\
+Name of the REPL history variable."))
 
 (defun drepl--process (repl)
   "The underlying process of dREPL object REPL."
@@ -122,7 +124,7 @@ addition to those of `drepl-base'."
          (pop-to-buffer (drepl--get-buffer-create ',name t)
                         display-comint-buffer-action))
        (cl-defstruct (,name
-                      (:include drepl-base)
+                      (:include drepl-base (history-variable ',hist-var))
                       (:copier nil)
                       (:constructor nil)
                       (:constructor ,(intern (format "%screate" conc-name)))
@@ -130,12 +132,7 @@ addition to those of `drepl-base'."
          ,(format "Structure keeping the state of a %s REPL." display-name)
          ,@extra-slots)
        (defvar ,hist-var nil ,(format "History list for %s REPLs." display-name))
-       (put ',name 'drepl--history-variable ',hist-var)
        (put ',name 'drepl--display-name ,display-name))))
-
-(defun drepl--history-variable (repl)
-  "Return the history variable of REPL, as a symbol."
-  (get (type-of repl) 'drepl--history-variable))
 
 (defun drepl--log-message-1 (&rest args)
   "Helper function for `drepl--log-message'.
@@ -577,6 +574,7 @@ activated.  It should start and initialize a Comint process."
     (when drepl-use-savehist-mode
       (defvar savehist-minibuffer-history-variables)
       (cl-pushnew hist savehist-minibuffer-history-variables))
+    (setq comint-input-ring (make-ring comint-input-ring-size))
     (dolist (cmd (take comint-input-ring-size (symbol-value hist)))
       (ring-insert-at-beginning comint-input-ring cmd))))
 
