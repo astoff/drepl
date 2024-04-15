@@ -27,7 +27,7 @@ class dREPL extends repl.REPLServer {
     this.sendMsg({ op: "log", text })
   }
 
-  ops = {
+  ops = Object.assign(Object.create(null), {
     complete: (msg) => {
       const { id, code, pos } = msg
       const cb = (err, data) => {
@@ -71,7 +71,7 @@ class dREPL extends repl.REPLServer {
       if (id) { this.sendMsg({ id }) }
       this.sendMsg({ op: "status", status: "ready" })
     }
-  }
+  })
 
   onLine(buffer, line) {
     if (line.startsWith("\x1b+")) {
@@ -82,9 +82,8 @@ class dREPL extends repl.REPLServer {
       buffer.push(line.slice(2))
       const msg = JSON.parse(buffer.join(""))
       buffer.length = 0
-      const { op } = msg
-      const f = this.ops.hasOwnProperty(op) ? this.ops[op] : this.ops.default
-      f.bind(this)(msg)
+      const f = this.ops[msg.op] || this.ops.default
+      f(msg)
       return
     }
     this.sendLog("Invalid message: " + JSON.stringify(line))
