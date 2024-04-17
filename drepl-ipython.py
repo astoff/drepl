@@ -3,10 +3,11 @@
 import base64
 import json
 import sys
+from itertools import chain
 from pathlib import Path
 from tempfile import mkstemp
 
-from IPython.core.completer import provisionalcompleter
+from IPython.core.completer import provisionalcompleter, rectify_completions
 from IPython.core.displayhook import DisplayHook
 from IPython.core.interactiveshell import InteractiveShell, InteractiveShellABC
 from IPython.utils.tokenutil import token_at_cursor
@@ -157,11 +158,15 @@ class Drepl(InteractiveShell):
 
     def drepl_complete(self, id, code, pos):
         with provisionalcompleter():
-            r = [
-                {"text": c.text, "annot": c.signature}
-                for c in self.Completer.completions(code, pos)
-            ]
-        sendmsg(id=id, candidates=r or None)
+            completions = rectify_completions(code, self.Completer.completions(code, pos))
+            first = next(completions, None)
+            if first is None:
+                sendmsg(id=id)
+                return
+            prefix = code[first.start: pos]
+            completions = chain([first], completions)
+            candidates = [{"text": c.text, "annot": c.signature} for c in completions]
+        sendmsg(id=id, prefix=prefix, candidates=candidates)
 
     def drepl_checkinput(self, id, code):
         status, indent = self.check_complete(code)
