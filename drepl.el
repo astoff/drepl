@@ -434,8 +434,10 @@ is a dREPL buffer."
   (interactive (list (when (or current-prefix-arg
                                (derived-mode-p 'drepl-mode))
                        (read-buffer "Evaluate buffer: "))))
-  (with-current-buffer (or buffer (current-buffer))
-    (drepl-eval-region (point-min) (point-max))))
+  (let ((repl drepl--current))
+    (with-current-buffer (or buffer (current-buffer))
+      (let ((drepl--current repl))
+        (drepl-eval-region (point-min) (point-max))))))
 
 (defun drepl-send-input-maybe (&optional force) ;Change this to `newline', with opposite logic
   "Like `comint-send-input', but first check if input is complete.
