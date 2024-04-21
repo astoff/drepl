@@ -418,7 +418,14 @@ Otherwise, make an eval request."
 (defun drepl-eval (code)
   "Evaluate CODE string in the current buffer's REPL."
   (interactive (list (read-from-minibuffer "Evaluate: ")))
-  (drepl--eval (drepl--get-repl nil t) code))
+  (let ((repl (drepl--get-repl nil t)))
+    (with-current-buffer (drepl--buffer repl)
+      (when-let ((last (cdr comint-last-prompt)))
+        (setq comint-last-prompt nil)
+        (save-excursion
+          (goto-char last)
+          (insert-before-markers ?\n))))
+    (drepl--eval repl code)))
 
 (defun drepl-eval-region (start end)
   "Evaluate region in the current buffer's REPL.
