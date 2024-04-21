@@ -443,7 +443,7 @@ is a dREPL buffer."
   "Like `comint-send-input', but first check if input is complete.
 If the input is incomplete or invalid code and FORCE is nil,
 insert start a continuation line instead."
-  (interactive "P")
+  (interactive "P" drepl-mode)
   (unless (derived-mode-p 'drepl-mode)
     (user-error "Can't run this command here"))
   (let-alist (when-let ((repl (unless force (drepl--get-repl 'ready)))
