@@ -163,19 +163,12 @@ The message is formed by calling `format' with STRING and ARGS."
       (lambda (s) (json-serialize s :null-object nil))
     (error "Not implemented")))
 
-(defconst drepl--state-transitions
-  '((eval . rawio))
-  "Alist mapping a REPL operation to a new REPL state.
-The default new state is busy.")
-
 (cl-defgeneric drepl--send-request (repl data)
   "Send request data to REPL.
 REPL must be in `ready' state and transitions to `busy' state.
 DATA is a plist containing the request arguments, as well as :op
 and :id entries."
-  (setf (drepl--status repl) (alist-get (plist-get data :op)
-                                        drepl--state-transitions
-                                        'busy nil #'string-equal))
+  (setf (drepl--status repl) 'busy)
   (let* ((proc (drepl--process repl))
          (maxlen (when (process-tty-name proc)
                    (- comint-max-line-length 3))))

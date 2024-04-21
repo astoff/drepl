@@ -55,9 +55,13 @@ function drepl:process_message()
 end
 
 function drepl:drepl_eval(args)
+  sendmsg{op="status", status="rawio"}
   self._buffer = ""
   local v = self:handleline(args.code)
-  if v == 2 then error("Incomplete input!") end
+  if v == 2 then
+    local _, err = self:compilechunk(args.code)
+    self:displayerror(err or "incomplete input")
+  end
   self:prompt(1)
 end
 

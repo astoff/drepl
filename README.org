@@ -96,9 +96,9 @@ Parameters:
   =rawio= (IO, if it occurs, should not be framed) or =busy= (no IO is
   allowed).
 
-Note: Some changes in the tracked state happen implicitly.  For
-instance, when an editor request is sent, the tracked state changes to
-=busy= or =rawio= depending on the operation type.
+Note: The editor keeps track of the interpreter status and implicitly
+switches to =busy= every time a request is sent.  It is the
+interpreter's responsibility to notify about all other status changes.
 
 *** =eval= (editor request)
 Evaluate some code, blocking until the computation is complete.

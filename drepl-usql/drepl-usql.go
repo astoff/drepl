@@ -168,6 +168,7 @@ func (l *Dline) Next() ([]rune, error) {
 		switch msg.Op {
 		case "eval":
 			l.SendMsg(map[string]any{"id": msg.Id})
+			l.SendStatus("rawio")
 			return []rune(msg.Code), nil
 		case "checkinput":
 			status, prompt := l.CheckInput(msg.Code)
@@ -242,6 +243,7 @@ func main() {
 	l := &Dline{scanner: scanner, completer: nil}
 	l.handler = handler.New(l, usr, wd, false)
 	l.handler.SetSingleLineMode(true)
+	l.SendStatus("rawio") // The following line may ask for a password
 	l.handler.Open(context.Background(), os.Args[1:]...)
 	l.SendLogo()
 	err = l.handler.Run()

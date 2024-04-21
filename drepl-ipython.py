@@ -122,7 +122,7 @@ class Drepl(InteractiveShell):
             try:
                 self.run_once()
             except EOFError:
-                sendmsg(op="status", status="busy")
+                sendmsg(op="status", status="rawio")
                 if (not self.confirm_exit) or self.ask_yes_no(
                     "Do you really want to exit ([y]/n)?", "y", "n"
                 ):
@@ -153,6 +153,7 @@ class Drepl(InteractiveShell):
                 break
 
     def drepl_eval(self, id, code):
+        sendmsg(op="status", status="rawio")
         r = self.run_cell(code)
         sendmsg(id=id)
 

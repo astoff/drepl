@@ -73,7 +73,6 @@
 
 (cl-defmethod drepl--init ((repl drepl-usql))
   (cl-call-next-method repl)
-  (setf (drepl--status repl) 'rawio)
   (push '("5151" . comint-mime-osc-handler) ansi-osc-handlers)
   (drepl--adapt-comint-to-mode ".sql"))
 
