@@ -36,7 +36,6 @@ class dREPL extends repl.REPLServer {
         const [items, prefix] = data
         const candidates = items.filter(Boolean)
         this.sendMsg({ id, prefix, candidates })
-        this.sendMsg({ op: "status", status: "ready" })
       }
       // FIXME: UTF-16 nonsense
       this.complete(code.slice(0, pos), cb)
@@ -46,17 +45,15 @@ class dREPL extends repl.REPLServer {
       const { id, code } = msg
       let cb = (err, result) => {
         if (err) { this.sendLog(err) }
-        this.sendMsg({ id })
         this.output.write(this.writer(result))
-        this.sendMsg({ op: "status", status: "ready" })
-        this.output.write("\n> ")
+        this.output.write("\n" + this.getPrompt())
       }
       this.eval(code, this.context, getREPLResourceName(), cb)
+      this.sendMsg({ id })
     },
 
     checkinput: (msg) => {
       const { id, code } = msg
-      this.sendMsg({ op: "status", status: "ready" })
       try {
         new vm.Script(code)
         this.sendMsg({ id, status: "complete" })
@@ -70,7 +67,6 @@ class dREPL extends repl.REPLServer {
     default: (msg) => {
       const { id } = msg
       if (id) { this.sendMsg({ id }) }
-      this.sendMsg({ op: "status", status: "ready" })
     }
   })
 
@@ -85,10 +81,10 @@ class dREPL extends repl.REPLServer {
       buffer.length = 0
       const f = this.ops[msg.op] || this.ops.default
       f(msg)
+      this.sendMsg({ op: "status", status: "ready" })
       return
     }
     this.sendLog("Invalid message: " + JSON.stringify(line))
-    this.sendMsg({ op: "status", status: "ready" })
   }
 }
 
