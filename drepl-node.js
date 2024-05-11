@@ -9,7 +9,8 @@ function getREPLResourceName() {
 }
 
 class dREPL extends repl.REPLServer {
-  constructor(options = {}) {
+  constructor(options) {
+    console.log(`Welcome to Node.js ${process.version}.`)
     options = { terminal: false, ...options }
     super(options)
     this.removeAllListeners("line")
