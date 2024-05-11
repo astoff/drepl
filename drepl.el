@@ -6,7 +6,7 @@
 ;; Keywords: languages, processes
 ;; URL: https://github.com/astoff/drepl
 ;; Package-Requires: ((emacs "29.1") (comint-mime "0.3"))
-;; Version: 0.2
+;; Version: 0.3
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
