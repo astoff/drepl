@@ -7,7 +7,7 @@ the moment it supports the following interpreters:
 
 - *Python*: requires [[https://pypi.org/project/ipython/][IPython]].
 - *Lua*: requires [[https://luarocks.org/modules/hoelzro/luarepl][luarepl]] and [[https://luarocks.org/modules/dhkolf/dkjson][dkjson]].
-- Various *SQL and NoSQL* databases: based on [[https://github.com/xo/usq][usql]], requires a Go
+- Various *SQL and NoSQL* databases: based on [[https://github.com/xo/usql][usql]], requires a Go
   compiler.
 - *Node.js*: uses the built-in REPL library.
 
