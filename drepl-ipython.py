@@ -193,3 +193,7 @@ class Drepl(InteractiveShell):
         if prompts:
             sys.ps1, sys.ps2, sys.ps3, self.separate_in, self.separate_out = prompts
         sendmsg(id=id)
+
+
+if __name__ == "__main__":
+    Drepl.instance().mainloop()

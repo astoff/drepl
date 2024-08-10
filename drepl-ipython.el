@@ -62,8 +62,7 @@ substring \"{}\" is replaced by the execution count."
 (drepl--define drepl-ipython :display-name "IPython")
 
 (cl-defmethod drepl--command ((_ drepl-ipython))
-  `(,python-interpreter "-c"
-    "import sys; exec(''.join(sys.stdin)); Drepl.instance().mainloop()"))
+  `(,python-interpreter "-c" "import sys; exec(''.join(sys.stdin))"))
 
 (cl-defmethod drepl--init ((repl drepl-ipython))
   (cl-call-next-method repl)
