@@ -50,7 +50,7 @@
 (drepl--define drepl-lua :display-name "Lua")
 
 (cl-defmethod drepl--command ((_ drepl-lua))
-  `(,drepl-lua-program "-v" "-e" "loadfile()():main()"))
+  `(,drepl-lua-program "-v" "-e" "load(io.read(tonumber(io.read())))():main()"))
 
 (cl-defmethod drepl--init ((repl drepl-lua))
   (cl-call-next-method repl)
@@ -58,8 +58,8 @@
   (let ((buffer (current-buffer)))
     (with-temp-buffer
       (insert-file-contents drepl-lua--start-file)
-      (process-send-string buffer (buffer-string))
-      (process-send-eof buffer))))
+      (process-send-string buffer (format "%s\n" (buffer-size)))
+      (process-send-string buffer (buffer-string)))))
 
 (provide 'drepl-lua)
 
