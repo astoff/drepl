@@ -62,7 +62,9 @@ substring \"{}\" is replaced by the execution count."
 (drepl--define drepl-ipython :display-name "IPython")
 
 (cl-defmethod drepl--command ((_ drepl-ipython))
-  `(,python-interpreter "-c" "import sys; exec(''.join(sys.stdin))"))
+  `(,python-interpreter "-c" "\
+from sys import stdin; \
+exec(stdin.read(int(stdin.readline())))"))
 
 (cl-defmethod drepl--init ((repl drepl-ipython))
   (cl-call-next-method repl)
@@ -71,8 +73,8 @@ substring \"{}\" is replaced by the execution count."
   (let ((buffer (current-buffer)))
     (with-temp-buffer
       (insert-file-contents drepl-ipython--start-file)
-      (process-send-string buffer (buffer-string))
-      (process-send-eof buffer))))
+      (process-send-string buffer (format "%s\n" (buffer-size)))
+      (process-send-string buffer (buffer-string)))))
 
 (cl-defmethod drepl--set-options ((repl drepl-ipython) _)
   (drepl--communicate repl #'ignore 'setoptions
