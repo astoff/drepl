@@ -80,15 +80,6 @@ exec(stdin.read(int(stdin.readline())))"))
   (drepl--communicate repl #'ignore 'setoptions
                       :prompts drepl-ipython-prompts))
 
-(cl-defmethod drepl--restart :around ((repl drepl-ipython) hard)
-  (if (and (not hard) (eq (drepl--status repl) 'ready))
-      (with-current-buffer (drepl--buffer repl)
-        (save-excursion)
-        (goto-char (process-mark (drepl--process repl)))
-        (insert-before-markers "%reset -f")
-        (drepl--eval repl "%reset -f"))
-    (cl-call-next-method)))
-
 (provide 'drepl-ipython)
 
 ;;; drepl-ipython.el ends here

@@ -501,25 +501,18 @@ See that variable's docstring for a description of CALLBACK."
 
 ;;; REPL restart
 
-(cl-defgeneric drepl--restart (repl hard)
-  "Generic method to restart a REPL.
-HARD should be as described in `drepl-restart', but it not used
-in the default implementation."
-  (ignore hard)
+(cl-defgeneric drepl--restart (repl)
+  "Generic method to restart a REPL."
   (with-current-buffer (drepl--buffer repl)
     (when-let ((proc (drepl--process repl)))
       (kill-process proc)
       (while (accept-process-output proc)))
     (drepl--get-buffer-create (type-of repl) nil)))
 
-(defun drepl-restart (&optional hard)
-  "Restart the current REPL.
-Some REPLs by default perform a soft reset by deleting all user
-variables without killing the interpreter.  In those cases, a
-prefix argument or non-nil HARD argument can be used to force a
-hard reset."
-  (interactive "P")
-  (drepl--restart (drepl--get-repl nil t) hard))
+(defun drepl-restart ()
+  "Restart the current REPL."
+  (interactive)
+  (drepl--restart (drepl--get-repl nil t)))
 
 ;;; REPL initialization
 
