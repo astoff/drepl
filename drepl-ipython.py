@@ -2,9 +2,9 @@
 
 import base64
 import json
-import sys
 from itertools import chain
 from pathlib import Path
+from sys import stdin, stdout
 from tempfile import mkstemp
 
 from IPython.core.completer import provisionalcompleter, rectify_completions
@@ -30,14 +30,17 @@ MIME_TYPES = {
 
 
 def sendmsg(**data):
-    print(f"\033]5161;{json.dumps(data)}\033\\", end="")
+    stdout.write("\033]5161;")
+    json.dump(data, stdout)
+    stdout.write("\033\\")
+    stdout.flush()
 
 
 def readmsg():
     sendmsg(op="status", status="ready")
     buffer = []
     while True:
-        line = input()
+        line = stdin.readline()
         buffer.append(line[2:])
         if line.startswith("\033="):
             return json.loads("".join(buffer))
@@ -51,12 +54,11 @@ class DreplError(Exception):
 
 class DreplDisplayHook(DisplayHook):
     def write_output_prompt(self):
-        print(self.shell.separate_out, end="")
-        outprompt = sys.ps3.format(self.shell.execution_count)
+        stdout.write(self.shell.separate_out)
         if self.do_full_cache:
-            print(outprompt, end="")
+            stdout.write(self.shell.ps3.format(self.shell.execution_count))
 
-    def write_format_data(self, format_dict, md_dict=None) -> None:
+    def write_format_data(self, format_dict, md_dict=None):
         for mime, handler in self.shell.mime_renderers.items():
             if mime in format_dict:
                 handler(format_dict[mime], None)
@@ -82,7 +84,7 @@ class Drepl(InteractiveShell):
         }
         self.enable_mime_rendering()
         # TODO: disable history
-        print(self.banner)
+        self.show_banner()
 
     system = InteractiveShell.system_raw
     displayhook_class = DreplDisplayHook
@@ -99,7 +101,7 @@ class Drepl(InteractiveShell):
                 payload = "tmp" + Path(fname).as_uri()
             else:
                 payload = base64.encodebytes(data).decode()
-            print(f"\033]5151;{header}\n{payload}\033\\")
+            stdout.write(f"\033]5151;{header}\n{payload}\033\\\n")
 
         return renderer
 
