@@ -11,6 +11,7 @@ from IPython.core.completer import provisionalcompleter, rectify_completions
 from IPython.core.displayhook import DisplayHook
 from IPython.core.interactiveshell import InteractiveShell, InteractiveShellABC
 from IPython.utils.tokenutil import token_at_cursor
+from traitlets import Unicode
 
 
 def encoding_workaround(data):
@@ -45,14 +46,14 @@ def readmsg():
         if line.startswith("\033="):
             return json.loads("".join(buffer))
         if not line.startswith("\033+"):
-            raise DreplError("Invalid input")
+            raise DReplError("Invalid input")
 
 
-class DreplError(Exception):
+class DReplError(Exception):
     pass
 
 
-class DreplDisplayHook(DisplayHook):
+class DReplDisplayHook(DisplayHook):
     def write_output_prompt(self):
         stdout.write(self.shell.separate_out)
         if self.do_full_cache:
@@ -67,10 +68,29 @@ class DreplDisplayHook(DisplayHook):
 
 
 @InteractiveShellABC.register
-class Drepl(InteractiveShell):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.current_ps1 = None
+class DRepl(InteractiveShell):
+    ps1 = Unicode(
+        "In [{}]: ",
+        help="Primary input prompt, with '{}' replaced by the execution count.",
+    ).tag(config=True)
+    ps2 = Unicode(
+        "...: ",
+        help="Secondary input prompt, used in multiline commands.",
+    ).tag(config=True)
+    ps3 = Unicode(
+        "\033[31mOut[{}]:\033[0m ",
+        help="String prepended to return values displayed in the shell.",
+    ).tag(config=True)
+
+    def __init__(self, config) -> None:
+        # Default settings
+        self.config.HistoryManager.enabled = False
+        # User-supplied settings
+        for k, v in config.items():
+            k0, dot, k1 = k.rpartition(".")
+            cfg = getattr(self.config, k0) if dot else self.config.DRepl
+            setattr(cfg, k1, v)
+        super().__init__()
         self.keep_running = True
         self.confirm_exit = True
         try:
@@ -83,11 +103,10 @@ class Drepl(InteractiveShell):
             k: self.make_mime_renderer(k, v) for k, v in MIME_TYPES.items()
         }
         self.enable_mime_rendering()
-        # TODO: disable history
         self.show_banner()
 
     system = InteractiveShell.system_raw
-    displayhook_class = DreplDisplayHook
+    displayhook_class = DReplDisplayHook
 
     def make_mime_renderer(self, type, encoder):
         def renderer(data, meta=None):
@@ -117,8 +136,7 @@ class Drepl(InteractiveShell):
         self.keep_running = False
 
     def enable_gui(self, gui=None):
-        if gui != "inline":
-            print("Can't enable this GUI: {}".format(gui))
+        pass
 
     def mainloop(self):
         while self.keep_running:
@@ -130,24 +148,19 @@ class Drepl(InteractiveShell):
                     "Do you really want to exit ([y]/n)?", "y", "n"
                 ):
                     self.ask_exit()
-            except (DreplError, KeyboardInterrupt) as e:
+            except (DReplError, KeyboardInterrupt) as e:
                 print(str(e) or e.__class__.__name__)
 
     def run_once(self):
         "Print prompt, run REPL until a new prompt is needed."
-        if self.current_ps1 is None:
-            sendmsg(op="getoptions")
-            self.current_ps1, separate_in = "", ""
-        else:
-            separate_in = self.separate_in if self.current_ps1 else ""
-            self.current_ps1 = sys.ps1.format(self.execution_count)
-        print(separate_in + self.current_ps1, end="")
+        self.current_ps1 = self.ps1.format(self.execution_count)
+        stdout.write(self.separate_in + self.current_ps1)
         while True:
             data = readmsg()
             op = data.pop("op")
             fun = getattr(self, "drepl_{}".format(op), None)
             if fun is None:
-                raise DreplError("Invalid op: {}".format(op))
+                raise DReplError("Invalid op: {}".format(op))
             fun(**data)
             if op == "eval":
                 self.execution_count += 1
@@ -176,7 +189,7 @@ class Drepl(InteractiveShell):
 
     def drepl_checkinput(self, id, code):
         status, indent = self.check_complete(code)
-        prompt = sys.ps2.format(self.execution_count).rjust(len(self.current_ps1))
+        prompt = self.ps2.format(self.execution_count).rjust(len(self.current_ps1))
         sendmsg(id=id, status=status, indent=indent, prompt=prompt)
 
     def drepl_describe(self, id, code, pos):
@@ -194,11 +207,7 @@ class Drepl(InteractiveShell):
         except Exception:
             sendmsg(id=id)
 
-    def drepl_setoptions(self, id, prompts=None):
-        if prompts:
-            sys.ps1, sys.ps2, sys.ps3, self.separate_in, self.separate_out = prompts
-        sendmsg(id=id)
-
 
 if __name__ == "__main__":
-    Drepl.instance().mainloop()
+    config = json.loads(stdin.readline())
+    DRepl.instance(config).mainloop()

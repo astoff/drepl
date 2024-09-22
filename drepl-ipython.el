@@ -38,18 +38,21 @@
   :group 'python
   :link '(url-link "https://github.com/astoff/drepl"))
 
-(defcustom drepl-ipython-prompts
-  ["In [{}]: " "...: " "\e[31mOut[{}]:\e[0m " "\n" ""]
-  "Prompts of the Python dREPL.
+(defcustom drepl-ipython-config nil
+  "Customization options for the IPython shell.
 
-This should be a vector of 5 string: primary prompt, continuation
-prompt, output prefix, input separator, output separator.  The
-substring \"{}\" is replaced by the execution count."
-  :type '(vector (string :tag "Primary prompt")
-                 (string :tag "Continuation prompt")
-                 (string :tag "Output prompt")
-                 (string :tag "Input separator")
-                 (string :tag "Output separator")))
+This should be a plist of configuration options in flat \"dotted\"
+format.  For example, to make the prompt look like the classic Python
+one and use SVG output for plots, set this variable as follows:
+
+  (DRepl.ps1 \">>> \"
+   DRepl.ps2 \"... \"
+   DRepl.ps3 \"\"
+   DRepl.separate_in \"\"
+   InlineBackend.figure_formats [\"svg\"])
+
+Type `%config' in the shell to see a listing of all available options."
+  :type 'plist)
 
 (defvar drepl-ipython--start-file
   (expand-file-name "drepl-ipython.py"
@@ -74,11 +77,9 @@ exec(stdin.read(int(stdin.readline())))"))
     (with-temp-buffer
       (insert-file-contents drepl-ipython--start-file)
       (process-send-string buffer (format "%s\n" (buffer-size)))
-      (process-send-string buffer (buffer-string)))))
-
-(cl-defmethod drepl--set-options ((repl drepl-ipython) _)
-  (drepl--communicate repl #'ignore 'setoptions
-                      :prompts drepl-ipython-prompts))
+      (process-send-region buffer (point-min) (point-max))
+      (process-send-string buffer (json-serialize drepl-ipython-config))
+      (process-send-string buffer "\n"))))
 
 (provide 'drepl-ipython)
 
