@@ -400,13 +400,13 @@ Otherwise, make an eval request."
         (repl (with-current-buffer
                   (if proc (process-buffer proc) (current-buffer))
                 (drepl--get-repl nil t))))
-    (if (not (eq (drepl--status repl) 'rawio))
+    (if (eq (drepl--status repl) 'rawio)
         (progn
-          (when-let ((hist (drepl--history-variable repl)))
-            (add-to-history hist string comint-input-ring-size))
-            (drepl--eval repl string))
-      (drepl--log-message "send raw %s" string)
-      (comint-simple-send proc string))))
+          (drepl--log-message "send raw %s" string)
+          (comint-simple-send proc string))
+      (when-let ((hist (drepl--history-variable repl)))
+        (add-to-history hist string comint-input-ring-size))
+      (drepl--eval repl string))))
 
 (defun drepl-eval (code)
   "Evaluate CODE string in the current buffer's REPL."

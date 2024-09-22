@@ -75,10 +75,10 @@ class Drepl(InteractiveShell):
             self.enable_matplotlib("inline")
         except ModuleNotFoundError:
             pass
-        self.display_formatter.active_types = list(MIME_TYPES.keys())
+        self.display_formatter.active_types = list(MIME_TYPES)
         self.mime_size_limit = 4000
         self.mime_renderers = {
-            t: self.make_mime_renderer(t, MIME_TYPES[t]) for t in MIME_TYPES
+            k: self.make_mime_renderer(k, v) for k, v in MIME_TYPES.items()
         }
         self.enable_mime_rendering()
         # TODO: disable history
@@ -160,12 +160,14 @@ class Drepl(InteractiveShell):
 
     def drepl_complete(self, id, code, pos):
         with provisionalcompleter():
-            completions = rectify_completions(code, self.Completer.completions(code, pos))
+            completions = rectify_completions(
+                code, self.Completer.completions(code, pos)
+            )
             first = next(completions, None)
             if first is None:
                 sendmsg(id=id)
                 return
-            prefix = code[first.start: pos]
+            prefix = code[first.start : pos]
             completions = chain([first], completions)
             candidates = [{"text": c.text, "annot": c.signature} for c in completions]
         sendmsg(id=id, prefix=prefix, candidates=candidates)
@@ -176,8 +178,8 @@ class Drepl(InteractiveShell):
         sendmsg(id=id, status=status, indent=indent, prompt=prompt)
 
     def drepl_describe(self, id, code, pos):
-        name = token_at_cursor(code, pos)
         try:
+            name = token_at_cursor(code, pos)
             info = self.object_inspect(name)
             defn = info["definition"]
             sendmsg(
