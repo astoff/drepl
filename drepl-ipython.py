@@ -20,11 +20,12 @@ def encoding_workaround(data):
 
 
 MIME_TYPES = {
-    "image/png": encoding_workaround,
-    "image/jpeg": encoding_workaround,
-    "text/latex": str.encode,
-    "text/html": str.encode,
     "application/json": lambda d: json.dumps(d).encode(),
+    "image/jpeg": encoding_workaround,
+    "image/png": encoding_workaround,
+    "image/svg+xml": str.encode,
+    "text/html": str.encode,
+    "text/latex": str.encode,
 }
 
 
