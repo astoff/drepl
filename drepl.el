@@ -215,7 +215,10 @@ and this function returns the response data directly."
   "Function intended for use as an entry of `ansi-osc-handlers'.
 TEXT is a still unparsed message received from the interpreter."
   (drepl--log-message "read %s" text)
-  (drepl--handle-response drepl--current (drepl--json-decode text)))
+  (condition-case err
+      (drepl--handle-response drepl--current (drepl--json-decode text))
+    (t (drepl--log-message "error: %s" err)
+       (message "Error processing dREPL message"))))
 
 (defun drepl--handle-response (repl data)
   "React to message DATA coming from the REPL process."
