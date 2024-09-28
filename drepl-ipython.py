@@ -20,7 +20,7 @@ def encoding_workaround(data):
     return data
 
 
-MIME_TYPES = {
+mime_types = {
     "application/json": lambda d: json.dumps(d).encode(),
     "image/jpeg": encoding_workaround,
     "image/png": encoding_workaround,
@@ -91,18 +91,15 @@ class DRepl(InteractiveShell):
             cfg = getattr(self.config, k0) if dot else self.config.DRepl
             setattr(cfg, k1, v)
         super().__init__()
-        self.keep_running = True
         self.confirm_exit = True
         try:
             self.enable_matplotlib("inline")
         except ModuleNotFoundError:
             pass
-        self.display_formatter.active_types = list(MIME_TYPES)
         self.mime_size_limit = 4000
         self.mime_renderers = {
-            k: self.make_mime_renderer(k, v) for k, v in MIME_TYPES.items()
+            k: self.make_mime_renderer(k, v) for k, v in mime_types.items()
         }
-        self.enable_mime_rendering()
         self.show_banner()
 
     system = InteractiveShell.system_raw
@@ -124,30 +121,19 @@ class DRepl(InteractiveShell):
 
         return renderer
 
-    def enable_mime_rendering(self, mime_types=None):
-        """Enable rendering of the given mime types; if None, enable all."""
-        if mime_types is None:
-            mime_types = MIME_TYPES
-        for t in mime_types:
-            if t in MIME_TYPES:
-                self.display_formatter.formatters[t].enabled = True
-
-    def ask_exit(self):
-        self.keep_running = False
-
     def enable_gui(self, gui=None):
         pass
 
     def mainloop(self):
-        while self.keep_running:
+        while True:
             try:
                 self.run_once()
             except EOFError:
                 sendmsg(op="status", status="rawio")
                 if (not self.confirm_exit) or self.ask_yes_no(
-                    "Do you really want to exit ([y]/n)?", "y", "n"
+                    "\nDo you really want to exit ([y]/n)?", "y", "n"
                 ):
-                    self.ask_exit()
+                    return
             except (DReplError, KeyboardInterrupt) as e:
                 print(str(e) or e.__class__.__name__)
 
@@ -162,10 +148,8 @@ class DRepl(InteractiveShell):
             if fun is None:
                 raise DReplError("Invalid op: {}".format(op))
             fun(**data)
-            if op == "eval":
+            if op in ("eval", "setoptions"):
                 self.execution_count += 1
-                break
-            if op == "setoptions":
                 break
 
     def drepl_eval(self, id, code):
