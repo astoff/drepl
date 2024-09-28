@@ -41,11 +41,13 @@ def readmsg():
     sendmsg(op="status", status="ready")
     buffer = []
     while True:
-        line = stdin.readline()
-        buffer.append(line[2:])
-        if line.startswith("\033="):
-            return json.loads("".join(buffer))
-        if not line.startswith("\033+"):
+        line = stdin.buffer.readline()
+        if not line:
+            raise EOFError
+        buffer.append(line[2:-1])
+        if line.startswith(b"\033="):
+            return json.loads(b"".join(buffer))
+        if not line.startswith(b"\033+"):
             raise DReplError("Invalid input")
 
 
