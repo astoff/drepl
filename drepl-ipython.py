@@ -12,6 +12,7 @@ from IPython.core.displayhook import DisplayHook
 from IPython.core.interactiveshell import InteractiveShell, InteractiveShellABC
 from IPython.utils.tokenutil import token_at_cursor
 
+from IPython.terminal.ipapp import launch_new_instance
 
 def encoding_workaround(data):
     if isinstance(data, str):
@@ -82,7 +83,6 @@ class Drepl(InteractiveShell):
         }
         self.enable_mime_rendering()
         # TODO: disable history
-        print(self.banner)
 
     system = InteractiveShell.system_raw
     displayhook_class = DreplDisplayHook
@@ -197,4 +197,4 @@ class Drepl(InteractiveShell):
 
 
 if __name__ == "__main__":
-    Drepl.instance().mainloop()
+    launch_new_instance(interactive_shell_class=Drepl)
