@@ -13,6 +13,7 @@ from IPython.core.interactiveshell import InteractiveShell, InteractiveShellABC
 from IPython.utils.tokenutil import token_at_cursor
 from traitlets import Unicode
 
+from IPython.terminal.ipapp import launch_new_instance
 
 def encoding_workaround(data):
     if isinstance(data, str):
@@ -84,15 +85,11 @@ class DRepl(InteractiveShell):
         help="String prepended to return values displayed in the shell.",
     ).tag(config=True)
 
-    def __init__(self, config) -> None:
+    def __init__(self, **kwargs) -> None:
         # Default settings
         self.config.HistoryManager.enabled = False
         # User-supplied settings
-        for k, v in config.items():
-            k0, dot, k1 = k.rpartition(".")
-            cfg = getattr(self.config, k0) if dot else self.config.DRepl
-            setattr(cfg, k1, v)
-        super().__init__()
+        super().__init__(**kwargs)
         self.confirm_exit = True
         try:
             self.enable_matplotlib("inline")
@@ -102,7 +99,6 @@ class DRepl(InteractiveShell):
         self.mime_renderers = {
             k: self.make_mime_renderer(k, v) for k, v in mime_types.items()
         }
-        self.show_banner()
 
     system = InteractiveShell.system_raw
     displayhook_class = DReplDisplayHook
@@ -195,5 +191,4 @@ class DRepl(InteractiveShell):
 
 
 if __name__ == "__main__":
-    config = json.loads(stdin.readline())
-    DRepl.instance(config).mainloop()
+    launch_new_instance(interactive_shell_class=DRepl)
