@@ -76,6 +76,11 @@ buffers, this is a dREPL buffer or nil.")
 (defvar drepl--log-buffer nil
   "Name of the event log buffer, or nil to disable logging.")
 
+(defvar drepl--display-buffer-action
+  (if (boundp 'display-comint-buffer-action) ; Emacs >= 29, <= 30
+      display-comint-buffer-action
+    (append display-buffer--same-window-action '((category . comint)))))
+
 ;;; Basic definitions
 
 (cl-defstruct (drepl-base
@@ -122,7 +127,7 @@ addition to those of `drepl-base'."
               (format "Start the %s interpreter." display-name))
          (interactive)
          (pop-to-buffer (drepl--get-buffer-create ',name t)
-                        display-comint-buffer-action))
+                        drepl--display-buffer-action))
        (cl-defstruct (,name
                       (:include drepl-base (history-variable ',hist-var))
                       (:copier nil)
@@ -324,7 +329,7 @@ interactively."
    (if ask
        (drepl--read-buffer "Pop to REPL: ")
      (drepl--buffer (drepl--get-repl nil t)))
-   display-comint-buffer-action))
+   drepl--display-buffer-action))
 
 ;;; Complete operation
 
