@@ -158,15 +158,19 @@ The message is formed by calling `format' with STRING and ARGS."
 ;;; Communication protocol
 
 (defalias 'drepl--json-decode
-  (if (json-available-p)
+  (if (fboundp 'json-parse-string)
       (lambda (s)
         (json-parse-string s :object-type 'alist :null-object nil))
-    (error "Not implemented")))
+    (require 'json)
+    (declare-function json-read-from-string "json" (string))
+    #'json-read-from-string))
 
 (defalias 'drepl--json-encode
-  (if (json-available-p)
+  (if (fboundp 'json-serialize)
       (lambda (s) (json-serialize s :null-object nil))
-    (error "Not implemented")))
+    (require 'json)
+    (declare-function json-encode "json" (object))
+    #'json-encode))
 
 (cl-defgeneric drepl--send-request (repl data)
   "Send request data to REPL.
