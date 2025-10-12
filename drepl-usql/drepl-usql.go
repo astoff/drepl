@@ -232,7 +232,7 @@ func main() {
 	env.Pset("pager", "off")
 	scanner := bufio.NewScanner(os.Stdin)
 	l := &Dline{scanner: scanner, completer: nil}
-	l.handler = handler.New(l, usr, wd, false)
+	l.handler = handler.New(l, usr, wd, nil, false)
 	l.handler.SetSingleLineMode(true)
 	l.SendStatus("rawio") // The following line may ask for a password
 	l.handler.Open(context.Background(), os.Args[1:]...)
